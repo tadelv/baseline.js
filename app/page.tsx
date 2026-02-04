@@ -1016,7 +1016,7 @@ export default function Page() {
                     <canvas id="sleepCanvas" width="800" height="800"></canvas>
                     <div class="sleep-content">
                         <div class="sleep-clock">\${timeString}</div>
-                        <div class="sleep-status">Machine Sleeping</div>
+                        <div class="sleep-status">Touch to wake</div>
                     </div>
                 </div>
             \`;
@@ -1109,26 +1109,142 @@ export default function Page() {
             requestAnimationFrame(renderBrewingVisualization);
         }
 
+        // Sleep animation particles with unique properties
+        let sleepParticles = null;
+        
+        function initSleepParticles() {
+            const count = 40;
+            sleepParticles = Array.from({ length: count }, (_, i) => ({
+                // Random offsets for organic movement
+                offsetX: Math.random() * 400 - 200,
+                offsetY: Math.random() * 400 - 200,
+                // Unique speed and phase for each particle
+                speedX: 0.1 + Math.random() * 0.3,
+                speedY: 0.15 + Math.random() * 0.25,
+                phaseX: Math.random() * Math.PI * 2,
+                phaseY: Math.random() * Math.PI * 2,
+                // Random size and pulsing characteristics
+                baseSize: 20 + Math.random() * 60,
+                pulseSpeed: 0.2 + Math.random() * 0.4,
+                pulsePhase: Math.random() * Math.PI * 2,
+                pulseAmount: 0.3 + Math.random() * 0.5,
+                // Color variation
+                hue: i % 3 === 0 ? 210 : (i % 3 === 1 ? 180 : 220),
+                saturation: 50 + Math.random() * 30,
+                // Opacity characteristics
+                baseOpacity: 0.05 + Math.random() * 0.12,
+                opacitySpeed: 0.15 + Math.random() * 0.25,
+                opacityPhase: Math.random() * Math.PI * 2,
+                // Trail effect
+                trailLength: 3 + Math.floor(Math.random() * 5),
+                trail: []
+            }));
+        }
+
         function renderSleepAnimation() {
             const canvas = document.getElementById('sleepCanvas');
             if (!canvas) return;
 
+            // Resize canvas to match window size
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+
+            if (!sleepParticles) initSleepParticles();
+
             const ctx = canvas.getContext('2d');
             const time = Date.now() / 1000;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Fade effect instead of clear for trails
+            ctx.fillStyle = 'rgba(10, 14, 39, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Generative ambient animation
-            for (let i = 0; i < 5; i++) {
-                const x = (canvas.width / 2) + Math.sin(time * 0.3 + i) * 150;
-                const y = (canvas.height / 2) + Math.cos(time * 0.25 + i * 0.5) * 150;
-                const size = 50 + Math.sin(time * 0.4 + i * 1.5) * 30;
+            // Draw connection lines between nearby particles
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.08)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < sleepParticles.length; i++) {
+                for (let j = i + 1; j < sleepParticles.length; j++) {
+                    const p1 = sleepParticles[i];
+                    const p2 = sleepParticles[j];
+                    
+                    const x1 = centerX + p1.offsetX + Math.sin(time * p1.speedX + p1.phaseX) * 180;
+                    const y1 = centerY + p1.offsetY + Math.cos(time * p1.speedY + p1.phaseY) * 180;
+                    const x2 = centerX + p2.offsetX + Math.sin(time * p2.speedX + p2.phaseX) * 180;
+                    const y2 = centerY + p2.offsetY + Math.cos(time * p2.speedY + p2.phaseY) * 180;
+                    
+                    const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+                    
+                    if (dist < 150) {
+                        const opacity = 0.3 * (1 - dist / 150);
+                        ctx.strokeStyle = \`rgba(59, 130, 246, \${opacity * 0.15})\`;
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.stroke();
+                    }
+                }
+            }
 
-                ctx.fillStyle = \`rgba(59, 130, 246, \${0.1 + Math.sin(time * 0.2 + i) * 0.05})\`;
+            // Draw each particle with trails
+            sleepParticles.forEach((p, i) => {
+                const x = centerX + p.offsetX + Math.sin(time * p.speedX + p.phaseX) * 180;
+                const y = centerY + p.offsetY + Math.cos(time * p.speedY + p.phaseY) * 180;
+                
+                // Update trail
+                p.trail.push({ x, y });
+                if (p.trail.length > p.trailLength) p.trail.shift();
+                
+                // Draw trail
+                p.trail.forEach((pos, idx) => {
+                    const trailOpacity = (idx / p.trail.length) * p.baseOpacity * 0.3;
+                    const trailSize = p.baseSize * 0.3 * (idx / p.trail.length);
+                    
+                    ctx.fillStyle = \`hsla(\${p.hue}, \${p.saturation}%, 60%, \${trailOpacity})\`;
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, trailSize, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Calculate dynamic properties
+                const pulse = Math.sin(time * p.pulseSpeed + p.pulsePhase) * p.pulseAmount;
+                const size = p.baseSize * (1 + pulse);
+                const opacityWave = Math.sin(time * p.opacitySpeed + p.opacityPhase) * 0.5 + 0.5;
+                const opacity = p.baseOpacity * opacityWave;
+                
+                // Draw main particle with gradient
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+                gradient.addColorStop(0, \`hsla(\${p.hue}, \${p.saturation}%, 70%, \${opacity})\`);
+                gradient.addColorStop(0.5, \`hsla(\${p.hue}, \${p.saturation}%, 60%, \${opacity * 0.5})\`);
+                gradient.addColorStop(1, \`hsla(\${p.hue}, \${p.saturation}%, 50%, 0)\`);
+                
+                ctx.fillStyle = gradient;
                 ctx.beginPath();
                 ctx.arc(x, y, size, 0, Math.PI * 2);
                 ctx.fill();
-            }
+                
+                // Add occasional sparkle effect
+                if (Math.sin(time * 2 + i) > 0.95) {
+                    ctx.fillStyle = \`rgba(255, 255, 255, \${0.3 + Math.random() * 0.3})\`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2 + Math.random() * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            
+            // Breathing overlay effect
+            const breathe = Math.sin(time * 0.4) * 0.5 + 0.5;
+            const overlayGradient = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, Math.max(canvas.width, canvas.height) / 2
+            );
+            overlayGradient.addColorStop(0, \`rgba(59, 130, 246, \${breathe * 0.03})\`);
+            overlayGradient.addColorStop(0.5, \`rgba(139, 92, 246, \${breathe * 0.02})\`);
+            overlayGradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+            ctx.fillStyle = overlayGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             requestAnimationFrame(renderSleepAnimation);
         }
@@ -1182,3 +1298,4 @@ export default function Page() {
     />
   );
 }
+
