@@ -46,6 +46,14 @@ export default function Page() {
             justify-content: space-between;
             padding: 3rem 2rem;
             animation: fadeIn 0.3s ease-in;
+            position: relative;
+        }
+
+        canvas#ambientCanvas {
+            position: absolute;
+            inset: 0;
+            opacity: 0.15;
+            pointer-events: none;
         }
 
         .status-area {
@@ -54,6 +62,8 @@ export default function Page() {
             align-items: center;
             gap: 1rem;
             margin-bottom: 2rem;
+            position: relative;
+            z-index: 10;
         }
 
         .status-indicator {
@@ -110,6 +120,8 @@ export default function Page() {
             justify-content: center;
             gap: 2rem;
             width: 100%;
+            position: relative;
+            z-index: 10;
         }
 
         .coffee-button {
@@ -156,6 +168,13 @@ export default function Page() {
             animation: fadeIn 0.3s ease-in;
         }
 
+        canvas#carouselCanvas {
+            position: absolute;
+            inset: 0;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+
         .carousel-container {
             background: #111827;
             border: 1px solid #1f2937;
@@ -164,6 +183,8 @@ export default function Page() {
             max-width: 500px;
             width: 90%;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            position: relative;
+            z-index: 10;
         }
 
         .carousel-progress {
@@ -897,6 +918,7 @@ export default function Page() {
             const status = getStatusDisplay();
             return \`
                 <div class="main-screen">
+                    <canvas id="ambientCanvas"></canvas>
                     <button class="power-button" onclick="sleepMachineAndTransition()" title="Sleep Machine">⏻</button>
 
                     <div class="status-area">
@@ -964,6 +986,7 @@ export default function Page() {
 
             return \`
                 <div class="carousel-overlay" onclick="event.target === this && closeCarousel()">
+                    <canvas id="carouselCanvas"></canvas>
                     <div class="carousel-container">
                         <div class="carousel-progress">\${progress}</div>
                         <div class="carousel-step">
@@ -1040,10 +1063,15 @@ export default function Page() {
         function render() {
             const app = document.getElementById('app');
 
+            // Stop any running ambient animation
+            stopAmbientAnimation();
+
             if (STATE.screen === 'main') {
                 app.innerHTML = renderMainScreen();
+                setTimeout(() => renderAmbientAnimation('ambientCanvas'), 50);
             } else if (STATE.screen === 'carousel') {
                 app.innerHTML = renderMainScreen() + renderCarousel();
+                setTimeout(() => renderAmbientAnimation('carouselCanvas'), 50);
             } else if (STATE.screen === 'brewing') {
                 app.innerHTML = renderBrewingScreen();
             } else if (STATE.screen === 'sleep') {
@@ -1051,6 +1079,7 @@ export default function Page() {
                 renderSleepAnimation();
             } else if (STATE.screen === 'done') {
                 app.innerHTML = renderDoneScreen();
+                setTimeout(() => renderAmbientAnimation('ambientCanvas'), 50);
             }
 
             if (STATE.screen === 'brewing') {
@@ -1059,54 +1088,218 @@ export default function Page() {
         }
 
         // ============ CANVAS VISUALIZATIONS ============
+        // Data-driven particle animation for brewing
+        let brewingParticles = null;
+        let smoothedPressure = 0;
+        let smoothedFlow = 0;
+        let smoothedCombined = 0;
+        
+        function initBrewingParticles() {
+            const count = 10; // Further reduced for smoothness
+            brewingParticles = Array.from({ length: count }, (_, i) => ({
+                offsetX: Math.random() * 600 - 300,
+                offsetY: Math.random() * 600 - 300,
+                speedX: 0.08 + Math.random() * 0.2,
+                speedY: 0.1 + Math.random() * 0.18,
+                phaseX: Math.random() * Math.PI * 2,
+                phaseY: Math.random() * Math.PI * 2,
+                baseSize: 30 + Math.random() * 50,
+                pulseSpeed: 0.15 + Math.random() * 0.3,
+                pulsePhase: Math.random() * Math.PI * 2,
+                pulseAmount: 0.25 + Math.random() * 0.4,
+                hue: i % 4 === 0 ? 210 : (i % 4 === 1 ? 180 : (i % 4 === 2 ? 160 : 200)),
+                saturation: 60 + Math.random() * 30,
+                baseOpacity: 0.08 + Math.random() * 0.12,
+                opacitySpeed: 0.12 + Math.random() * 0.2,
+                opacityPhase: Math.random() * Math.PI * 2,
+            }));
+        }
+        
         function renderBrewingVisualization() {
             const canvas = document.getElementById('brewingCanvas');
             if (!canvas) return;
 
+            // Resize canvas to match window size
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+
+            if (!brewingParticles) initBrewingParticles();
+
             const ctx = canvas.getContext('2d');
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
-            const maxRadius = 150;
+            const time = Date.now() / 1000;
 
-            // Clear
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Background gradient
-            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
-            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.1)');
-            gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
-            ctx.fillStyle = gradient;
+            // Stronger fade effect for smoother trails
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Pressure rings
-            const pressureRadius = (STATE.currentPressure / 15) * maxRadius;
-            ctx.strokeStyle = \`rgba(59, 130, 246, \${0.3 + STATE.currentPressure / 30})\`;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, pressureRadius, 0, Math.PI * 2);
-            ctx.stroke();
+            // Low-pass filter with much stronger smoothing
+            const smoothingFactor = 0.03; // Very low for gentle transitions (was 0.08)
+            smoothedPressure += (STATE.currentPressure - smoothedPressure) * smoothingFactor;
+            smoothedFlow += (STATE.currentFlow - smoothedFlow) * smoothingFactor;
+            smoothedCombined += ((STATE.currentPressure + STATE.currentFlow) / 2 - smoothedCombined) * smoothingFactor;
 
-            // Flow particles
-            const particleCount = Math.floor(STATE.currentFlow * 10);
-            for (let i = 0; i < particleCount; i++) {
-                const angle = (Date.now() / 20 + i * Math.PI * 2 / particleCount) % (Math.PI * 2);
-                const distance = 30 + Math.sin(Date.now() / 500 + i) * 20;
-                const x = centerX + Math.cos(angle) * distance;
-                const y = centerY + Math.sin(angle) * distance;
+            // Data-driven intensity multipliers using smoothed values with reduced impact
+            const pressureIntensity = 1 + smoothedPressure * 0.15; // Reduced from 0.3
+            const flowIntensity = 1 + smoothedFlow * 0.2; // Reduced from 0.4
+            const combinedIntensity = smoothedCombined * 0.5; // Dampened by 50%
 
-                ctx.fillStyle = \`rgba(74, 222, 128, \${0.6 - (i / particleCount) * 0.4})\`;
+            // Draw particles with data-driven properties
+            brewingParticles.forEach((p) => {
+                const x = centerX + p.offsetX + Math.sin(time * p.speedX * pressureIntensity + p.phaseX) * 50;
+                const y = centerY + p.offsetY + Math.cos(time * p.speedY * flowIntensity + p.phaseY) * 50;
+                
+                const pulse = Math.sin(time * p.pulseSpeed * flowIntensity + p.pulsePhase) * p.pulseAmount;
+                const size = p.baseSize * (1 + pulse) * (1 + combinedIntensity * 0.3);
+                const opacityWave = Math.sin(time * p.opacitySpeed + p.opacityPhase) * 0.5 + 0.5;
+                const opacity = p.baseOpacity * opacityWave * (1 + combinedIntensity * 0.5);
+                
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+                gradient.addColorStop(0, \`hsla(\${p.hue}, \${p.saturation}%, 70%, \${opacity})\`);
+                gradient.addColorStop(0.5, \`hsla(\${p.hue}, \${p.saturation}%, 60%, \${opacity * 0.4})\`);
+                gradient.addColorStop(1, \`hsla(\${p.hue}, \${p.saturation}%, 50%, 0)\`);
+                
+                ctx.fillStyle = gradient;
                 ctx.beginPath();
-                ctx.arc(x, y, 3 + Math.sin(Date.now() / 300 + i) * 2, 0, Math.PI * 2);
+                ctx.arc(x, y, size, 0, Math.PI * 2);
                 ctx.fill();
-            }
-
-            // Center indicator
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
-            ctx.fill();
+            });
+            
+            // Breathing overlay driven by brewing data
+            const breathe = Math.sin(time * 0.4) * 0.5 + 0.5;
+            const dataBreath = breathe * combinedIntensity;
+            const overlayGradient = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, Math.max(canvas.width, canvas.height) / 2
+            );
+            overlayGradient.addColorStop(0, \`rgba(139, 92, 246, \${dataBreath * 0.08})\`);
+            overlayGradient.addColorStop(0.5, \`rgba(59, 130, 246, \${dataBreath * 0.04})\`);
+            overlayGradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
+            ctx.fillStyle = overlayGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             requestAnimationFrame(renderBrewingVisualization);
+        }
+
+        // Ambient background animation for main screen and carousel
+        let ambientParticles = null;
+        let ambientAnimationFrame = null;
+        
+        function initAmbientParticles() {
+            const count = 25;
+            ambientParticles = Array.from({ length: count }, (_, i) => ({
+                offsetX: Math.random() * 600 - 300,
+                offsetY: Math.random() * 600 - 300,
+                speedX: 0.08 + Math.random() * 0.2,
+                speedY: 0.1 + Math.random() * 0.18,
+                phaseX: Math.random() * Math.PI * 2,
+                phaseY: Math.random() * Math.PI * 2,
+                baseSize: 30 + Math.random() * 50,
+                pulseSpeed: 0.15 + Math.random() * 0.3,
+                pulsePhase: Math.random() * Math.PI * 2,
+                pulseAmount: 0.25 + Math.random() * 0.4,
+                hue: i % 4 === 0 ? 210 : (i % 4 === 1 ? 200 : (i % 4 === 2 ? 220 : 190)),
+                saturation: 60 + Math.random() * 30,
+                baseOpacity: 0.08 + Math.random() * 0.12,
+                opacitySpeed: 0.12 + Math.random() * 0.2,
+                opacityPhase: Math.random() * Math.PI * 2,
+            }));
+        }
+
+        function renderAmbientAnimation(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                ambientAnimationFrame = null;
+                return;
+            }
+
+            // Resize canvas to match window size
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+
+            if (!ambientParticles) initAmbientParticles();
+
+            const ctx = canvas.getContext('2d');
+            const time = Date.now() / 1000;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Fade effect for subtle trails
+            ctx.fillStyle = 'rgba(10, 14, 39, 0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw subtle connection lines
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < ambientParticles.length; i++) {
+                for (let j = i + 1; j < ambientParticles.length; j++) {
+                    const p1 = ambientParticles[i];
+                    const p2 = ambientParticles[j];
+                    
+                    const x1 = centerX + p1.offsetX + Math.sin(time * p1.speedX + p1.phaseX) * 200;
+                    const y1 = centerY + p1.offsetY + Math.cos(time * p1.speedY + p1.phaseY) * 200;
+                    const x2 = centerX + p2.offsetX + Math.sin(time * p2.speedX + p2.phaseX) * 200;
+                    const y2 = centerY + p2.offsetY + Math.cos(time * p2.speedY + p2.phaseY) * 200;
+                    
+                    const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+                    
+                    if (dist < 180) {
+                        const opacity = 0.2 * (1 - dist / 180);
+                        ctx.strokeStyle = \`rgba(59, 130, 246, \${opacity * 0.08})\`;
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Draw particles
+            ambientParticles.forEach((p) => {
+                const x = centerX + p.offsetX + Math.sin(time * p.speedX + p.phaseX) * 200;
+                const y = centerY + p.offsetY + Math.cos(time * p.speedY + p.phaseY) * 200;
+                
+                const pulse = Math.sin(time * p.pulseSpeed + p.pulsePhase) * p.pulseAmount;
+                const size = p.baseSize * (1 + pulse);
+                const opacityWave = Math.sin(time * p.opacitySpeed + p.opacityPhase) * 0.5 + 0.5;
+                const opacity = p.baseOpacity * opacityWave;
+                
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+                gradient.addColorStop(0, \`hsla(\${p.hue}, \${p.saturation}%, 70%, \${opacity})\`);
+                gradient.addColorStop(0.5, \`hsla(\${p.hue}, \${p.saturation}%, 60%, \${opacity * 0.4})\`);
+                gradient.addColorStop(1, \`hsla(\${p.hue}, \${p.saturation}%, 50%, 0)\`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Subtle breathing overlay
+            const breathe = Math.sin(time * 0.3) * 0.5 + 0.5;
+            const overlayGradient = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, Math.max(canvas.width, canvas.height) / 2
+            );
+            overlayGradient.addColorStop(0, \`rgba(59, 130, 246, \${breathe * 0.02})\`);
+            overlayGradient.addColorStop(0.6, \`rgba(99, 102, 241, \${breathe * 0.015})\`);
+            overlayGradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+            ctx.fillStyle = overlayGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ambientAnimationFrame = requestAnimationFrame(() => renderAmbientAnimation(canvasId));
+        }
+
+        function stopAmbientAnimation() {
+            if (ambientAnimationFrame) {
+                cancelAnimationFrame(ambientAnimationFrame);
+                ambientAnimationFrame = null;
+            }
         }
 
         // Sleep animation particles with unique properties
@@ -1298,4 +1491,28 @@ export default function Page() {
     />
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
