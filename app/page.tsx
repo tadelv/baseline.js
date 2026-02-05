@@ -130,20 +130,23 @@ export default function Page() {
             font-weight: 500;
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(30, 64, 175, 0.9) 100%);
             color: white;
-            border: none;
+            border: 1px solid rgba(59, 130, 246, 0.3);
             border-radius: 0.5rem;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4), 0 0 60px rgba(59, 130, 246, 0.2);
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .coffee-button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(59, 130, 246, 0.5);
+            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.6), 0 0 80px rgba(59, 130, 246, 0.3);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 1) 0%, rgba(30, 64, 175, 1) 100%);
         }
 
         .coffee-button:active:not(:disabled) {
@@ -176,15 +179,17 @@ export default function Page() {
         }
 
         .carousel-container {
-            background: #111827;
-            border: 1px solid #1f2937;
+            background: rgba(17, 24, 39, 0.7);
+            border: 1px solid rgba(59, 130, 246, 0.2);
             border-radius: 1rem;
             padding: 2rem;
             max-width: 500px;
             width: 90%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(59, 130, 246, 0.1);
             position: relative;
             z-index: 10;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
         }
 
         .carousel-progress {
@@ -263,21 +268,28 @@ export default function Page() {
         }
 
         .carousel-btn.prev {
-            background: #374151;
+            background: rgba(55, 65, 81, 0.7);
             color: #e0e0e0;
+            border: 1px solid rgba(75, 85, 99, 0.5);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
 
         .carousel-btn.prev:hover:not(:disabled) {
-            background: #4b5563;
+            background: rgba(75, 85, 99, 0.9);
         }
 
         .carousel-btn.next {
-            background: #3b82f6;
+            background: rgba(59, 130, 246, 0.9);
             color: white;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
 
         .carousel-btn.next:hover:not(:disabled) {
-            background: #2563eb;
+            background: rgba(37, 99, 235, 1);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
         }
 
         .carousel-btn:disabled {
@@ -412,15 +424,17 @@ export default function Page() {
         }
 
         .settings-dialog {
-            background: #111827;
-            border: 1px solid #1f2937;
+            background: rgba(17, 24, 39, 0.7);
+            border: 1px solid rgba(59, 130, 246, 0.2);
             border-radius: 1rem;
             padding: 2rem;
             max-width: 450px;
             width: 90%;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(59, 130, 246, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
         }
 
         .settings-title {
@@ -494,21 +508,29 @@ export default function Page() {
         }
 
         .settings-button.save {
-            background: #3b82f6;
+            background: rgba(59, 130, 246, 0.9);
             color: white;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
         }
 
         .settings-button.save:hover {
-            background: #2563eb;
+            background: rgba(37, 99, 235, 1);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
         }
 
         .settings-button.cancel {
-            background: #374151;
+            background: rgba(55, 65, 81, 0.7);
             color: #e0e0e0;
+            border: 1px solid rgba(75, 85, 99, 0.5);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
 
         .settings-button.cancel:hover {
-            background: #4b5563;
+            background: rgba(75, 85, 99, 0.9);
         }
 
         /* TOOLBAR */
@@ -611,24 +633,31 @@ export default function Page() {
         }
 
         .action-btn.again {
-            background: #3b82f6;
+            background: rgba(59, 130, 246, 0.9);
             color: white;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
         }
 
         .action-btn.again:hover {
-            background: #2563eb;
+            background: rgba(37, 99, 235, 1);
             transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
         }
 
         .action-btn.sleep {
-            background: #1f2937;
+            background: rgba(31, 41, 55, 0.7);
             color: #e0e0e0;
-            border: 1px solid #374151;
+            border: 1px solid rgba(75, 85, 99, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .action-btn.sleep:hover {
-            background: #374151;
-            border-color: #4b5563;
+            background: rgba(55, 65, 81, 0.9);
+            border-color: rgba(75, 85, 99, 0.8);
         }
 
         @media (max-width: 640px) {
@@ -670,7 +699,12 @@ export default function Page() {
             brewingStartTime: null,
             statusCheckInterval: null,
             webSocket: null,
-            previousMachineState: null // Track previous state to prevent unnecessary re-renders
+            scaleWebSocket: null,
+            previousMachineState: null, // Track previous state to prevent unnecessary re-renders
+            scaleConnected: false,
+            scaleScanInterval: null,
+            currentWeight: 0,
+            targetWeightReached: false
         };
 
         // ============ STORAGE ============
@@ -732,15 +766,83 @@ export default function Page() {
             });
         }
 
-        async function connectScale() {
+        async function checkScaleConnection() {
             const devices = await apiCall('/api/v1/devices');
             const scale = devices?.find(d => d.type === 'scale');
-            if (scale && scale.state === 'disconnected') {
-                return await apiCall(\`/api/v1/devices/connect?deviceId=\${scale.id}\`, {
-                    method: 'PUT'
-                });
+            return scale && scale.state === 'connected';
+        }
+
+        async function connectScale() {
+            // First check if scale is already connected
+            const isConnected = await checkScaleConnection();
+            if (isConnected) {
+                STATE.scaleConnected = true;
+                return true;
             }
-            return null;
+
+            // Trigger scan with auto-connect
+            await apiCall('/api/v1/devices/scan?connect=true', {
+                method: 'POST'
+            });
+
+            // Poll for scale connection
+            return new Promise((resolve) => {
+                let attempts = 0;
+                const maxAttempts = 10; // 10 seconds timeout
+                
+                STATE.scaleScanInterval = setInterval(async () => {
+                    attempts++;
+                    const connected = await checkScaleConnection();
+                    
+                    if (connected) {
+                        STATE.scaleConnected = true;
+                        clearInterval(STATE.scaleScanInterval);
+                        STATE.scaleScanInterval = null;
+                        resolve(true);
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(STATE.scaleScanInterval);
+                        STATE.scaleScanInterval = null;
+                        resolve(false);
+                    }
+                }, 1000);
+            });
+        }
+
+        function connectScaleWebSocket() {
+            const wsUrl = CONFIG.apiUrl.replace('http', 'ws') + '/ws/v1/scale/snapshot';
+            try {
+                STATE.scaleWebSocket = new WebSocket(wsUrl);
+                STATE.scaleWebSocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    STATE.currentWeight = data.weight || 0;
+                    
+                    // Check if target weight is reached (within 0.5g tolerance)
+                    if (Math.abs(STATE.currentWeight - CONFIG.coffeeWeight) <= 0.5) {
+                        STATE.targetWeightReached = true;
+                    } else {
+                        STATE.targetWeightReached = false;
+                    }
+                    
+                    // Update the carousel display if on weight step
+                    if (STATE.carouselStep === 1) {
+                        updateWeightDisplay();
+                    }
+                };
+                STATE.scaleWebSocket.onerror = (error) => {
+                    console.error('[v0] Scale WebSocket error:', error);
+                };
+            } catch (error) {
+                console.error('[v0] Failed to connect Scale WebSocket:', error);
+            }
+        }
+
+        function disconnectScaleWebSocket() {
+            if (STATE.scaleWebSocket) {
+                STATE.scaleWebSocket.close();
+                STATE.scaleWebSocket = null;
+            }
+            STATE.currentWeight = 0;
+            STATE.targetWeightReached = false;
         }
 
         async function startBrewing() {
@@ -822,20 +924,41 @@ export default function Page() {
         }
 
         // ============ UI HANDLERS ============
-        function openCarousel() {
+        async function openCarousel() {
             STATE.screen = 'carousel';
             STATE.carouselStep = 0;
+            STATE.scaleConnected = false;
+            STATE.targetWeightReached = false;
             render();
+            
+            // Start connecting scale immediately
+            await connectScale();
+            renderCarouselOnly();
         }
 
         function closeCarousel() {
             STATE.screen = 'main';
             STATE.carouselStep = 0;
+            disconnectScaleWebSocket();
+            if (STATE.scaleScanInterval) {
+                clearInterval(STATE.scaleScanInterval);
+                STATE.scaleScanInterval = null;
+            }
             render();
         }
 
         function nextStep() {
             if (STATE.carouselStep < 6) {
+                // Start weight monitoring when entering step 1 (Weigh Coffee)
+                if (STATE.carouselStep === 0 && STATE.scaleConnected) {
+                    connectScaleWebSocket();
+                }
+                
+                // Disconnect from scale after step 1
+                if (STATE.carouselStep === 1) {
+                    disconnectScaleWebSocket();
+                }
+                
                 STATE.carouselStep++;
                 renderCarouselOnly();
             }
@@ -843,8 +966,26 @@ export default function Page() {
 
         function prevStep() {
             if (STATE.carouselStep > 0) {
+                // Reconnect to scale when going back to step 1
+                if (STATE.carouselStep === 2) {
+                    connectScaleWebSocket();
+                }
+                
+                // Disconnect when going back from step 1
+                if (STATE.carouselStep === 1) {
+                    disconnectScaleWebSocket();
+                }
+                
                 STATE.carouselStep--;
                 renderCarouselOnly();
+            }
+        }
+
+        function updateWeightDisplay() {
+            const weightText = document.querySelector('.weight-display');
+            if (weightText) {
+                weightText.textContent = \`Current: \${STATE.currentWeight.toFixed(1)}g / Target: \${CONFIG.coffeeWeight}g\`;
+                weightText.style.color = STATE.targetWeightReached ? '#4ade80' : '#e0e0e0';
             }
         }
 
@@ -852,8 +993,19 @@ export default function Page() {
             const carousel = document.querySelector('.carousel-container');
             if (carousel) {
                 const steps = [
-                    { title: 'Turn On Scale', description: 'Make sure your scale is turned on and connected to the system.', hasInput: false },
-                    { title: 'Weigh Coffee', description: \`Weigh \${CONFIG.coffeeWeight}g of coffee beans and place them in the grinder.\`, hasInput: false },
+                    { 
+                        title: 'Turn On Scale', 
+                        description: STATE.scaleConnected 
+                            ? '✓ Scale connected and ready!' 
+                            : 'Connecting to scale...',
+                        hasInput: false 
+                    },
+                    { 
+                        title: 'Weigh Coffee', 
+                        description: \`Place \${CONFIG.coffeeWeight}g of coffee beans on the scale.\`,
+                        hasInput: false,
+                        showWeight: true
+                    },
                     { title: 'Set Grinder', description: \`Set your grinder to setting \${CONFIG.grinderSetting}.\`, hasInput: false },
                     { title: 'Grind', description: 'Grind the coffee until all beans are processed.', hasInput: false },
                     { title: 'Tamp', description: 'Pour the grounds into the portafilter and tamp firmly and evenly.', hasInput: false },
@@ -863,12 +1015,17 @@ export default function Page() {
 
                 const step = steps[STATE.carouselStep];
                 const progress = Array.from({ length: 7 }, (_, i) => \`<div class="progress-dot \${i === STATE.carouselStep ? 'active' : ''}"></div>\`).join('');
+                
+                const weightDisplay = step.showWeight 
+                    ? \`<p class="weight-display" style="font-size: 1.2rem; font-weight: 600; margin-top: 1rem;">\${STATE.currentWeight.toFixed(1)}g / \${CONFIG.coffeeWeight}g</p>\`
+                    : '';
 
                 carousel.innerHTML = \`
                     <div class="carousel-progress">\${progress}</div>
                     <div class="carousel-step">
                         <h2>\${step.title}</h2>
-                        <p>\${step.description}</p>
+                        <p style="color: \${STATE.carouselStep === 0 && STATE.scaleConnected ? '#4ade80' : 'inherit'}">\${step.description}</p>
+                        \${weightDisplay}
                     </div>
                     <div class="carousel-controls">
                         <button class="carousel-btn prev" onclick="prevStep()" \${STATE.carouselStep === 0 ? 'disabled' : ''}>← Back</button>
@@ -1590,6 +1747,18 @@ export default function Page() {
     />
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
