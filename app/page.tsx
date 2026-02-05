@@ -719,9 +719,16 @@ export default function Page() {
         }
 
         async function setProfile(profileId) {
+            // Find the full profile object
+            const profile = STATE.profiles.find(p => p.id === profileId);
+            if (!profile) {
+                console.error('[v0] Profile not found:', profileId);
+                return null;
+            }
+            
             return await apiCall('/api/v1/workflow', {
-                method: 'POST',
-                body: JSON.stringify({ profile: profileId })
+                method: 'PUT',
+                body: JSON.stringify({ profile: profile.profile })
             });
         }
 
@@ -743,8 +750,14 @@ export default function Page() {
         }
 
         async function sleepMachine() {
-            return await apiCall('/api/v1/machine/sleep', {
-                method: 'POST'
+            return await apiCall('/api/v1/machine/state/sleeping', {
+                method: 'PUT'
+            });
+        }
+
+        async function wakeMachine() {
+            return await apiCall('/api/v1/machine/state/idle', {
+                method: 'PUT'
             });
         }
 
@@ -866,17 +879,36 @@ export default function Page() {
         }
 
         function openSettings() {
-            const serverUrl = prompt('Server URL:', CONFIG.apiUrl);
-            if (serverUrl !== null) CONFIG.apiUrl = serverUrl;
+            STATE.screen = 'settings';
+            render();
+        }
 
-            const weight = prompt('Coffee Weight (grams):', CONFIG.coffeeWeight);
-            if (weight !== null) CONFIG.coffeeWeight = parseInt(weight);
+        function closeSettings() {
+            STATE.screen = 'main';
+            render();
+        }
 
-            const grinder = prompt('Grinder Setting:', CONFIG.grinderSetting);
-            if (grinder !== null) CONFIG.grinderSetting = parseInt(grinder);
+        async function saveSettingsFromDialog() {
+            const serverUrl = document.getElementById('settingServerUrl').value;
+            const weight = document.getElementById('settingCoffeeWeight').value;
+            const grinder = document.getElementById('settingGrinder').value;
+            const profile = document.getElementById('settingProfile').value;
+            const clockFormat = document.getElementById('settingClockFormat').value;
+
+            CONFIG.apiUrl = serverUrl;
+            CONFIG.coffeeWeight = parseInt(weight);
+            CONFIG.grinderSetting = parseInt(grinder);
+            CONFIG.profile = profile;
+            CONFIG.clockFormat = clockFormat;
 
             saveSettings();
-            render();
+            
+            // Set the profile on the machine
+            if (profile) {
+                await setProfile(profile);
+            }
+
+            closeSettings();
         }
 
         function makeAnother() {
@@ -898,8 +930,16 @@ export default function Page() {
             await sleep();
         }
 
-        function wakeUp() {
+        async function wakeUp() {
             STATE.screen = 'main';
+
+
+            await wakeMachine(); 
+            // Set the profile when waking up
+            if (CONFIG.profile) {
+                await setProfile(CONFIG.profile);
+            }
+            
             render();
         }
 
@@ -1060,6 +1100,56 @@ export default function Page() {
             \`;
         }
 
+        function renderSettingsScreen() {
+            const profileOptions = STATE.profiles.map(p => 
+                \`<option value="\${p.id}" \${p.id === CONFIG.profile ? 'selected' : ''}>\${p.profile.title || p.id}</option>\`
+            ).join('');
+
+            return \`
+                <div class="settings-overlay">
+                    <div class="settings-dialog">
+                        <h2 class="settings-title">Settings</h2>
+                        
+                        <div class="setting-group">
+                            <label class="setting-label" for="settingServerUrl">Server URL</label>
+                            <input type="text" id="settingServerUrl" class="setting-input" value="\${CONFIG.apiUrl}" />
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label" for="settingProfile">Machine Profile</label>
+                            <select id="settingProfile" class="setting-input">
+                                <option value="">Select a profile</option>
+                                \${profileOptions}
+                            </select>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label" for="settingCoffeeWeight">Coffee Weight (grams)</label>
+                            <input type="number" id="settingCoffeeWeight" class="setting-input" value="\${CONFIG.coffeeWeight}" />
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label" for="settingGrinder">Grinder Setting</label>
+                            <input type="number" id="settingGrinder" class="setting-input" value="\${CONFIG.grinderSetting}" />
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label" for="settingClockFormat">Clock Format</label>
+                            <select id="settingClockFormat" class="setting-input">
+                                <option value="24" \${CONFIG.clockFormat === '24' ? 'selected' : ''}>24 Hour</option>
+                                <option value="12" \${CONFIG.clockFormat === '12' ? 'selected' : ''}>12 Hour</option>
+                            </select>
+                        </div>
+
+                        <div class="settings-buttons">
+                            <button class="settings-button cancel" onclick="closeSettings()">Cancel</button>
+                            <button class="settings-button save" onclick="saveSettingsFromDialog()">Save</button>
+                        </div>
+                    </div>
+                </div>
+            \`;
+        }
+
         function render() {
             const app = document.getElementById('app');
 
@@ -1079,6 +1169,9 @@ export default function Page() {
                 renderSleepAnimation();
             } else if (STATE.screen === 'done') {
                 app.innerHTML = renderDoneScreen();
+                setTimeout(() => renderAmbientAnimation('ambientCanvas'), 50);
+            } else if (STATE.screen === 'settings') {
+                app.innerHTML = renderMainScreen() + renderSettingsScreen();
                 setTimeout(() => renderAmbientAnimation('ambientCanvas'), 50);
             }
 
@@ -1448,6 +1541,12 @@ export default function Page() {
             startStatusCheck();
             await getMachineState();
             await getProfiles();
+            
+            // Set the profile on machine startup
+            if (CONFIG.profile) {
+                await setProfile(CONFIG.profile);
+            }
+            
             render();
 
             // Update brewing stats and sleep clock without full re-render
@@ -1491,6 +1590,13 @@ export default function Page() {
     />
   );
 }
+
+
+
+
+
+
+
 
 
 
