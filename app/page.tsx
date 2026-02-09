@@ -689,7 +689,7 @@ export default function Page() {
         };
 
         let STATE = {
-            screen: 'main', // main, sleep, carousel, brewing, done
+            screen: 'main', // main, sleep, carousel, brewing, done, settings
             machineState: 'disconnected',
             machineReady: false,
             carouselStep: 0,
@@ -1045,6 +1045,11 @@ export default function Page() {
             render();
         }
 
+        function openPluginSettings() {
+            const pluginUrl = \`\${CONFIG.apiUrl}/api/v1/plugins/settings.reaplugin/ui\`;
+            window.open(pluginUrl, '_blank');
+        }
+
         async function saveSettingsFromDialog() {
             const serverUrl = document.getElementById('settingServerUrl').value;
             const weight = document.getElementById('settingCoffeeWeight').value;
@@ -1133,6 +1138,7 @@ export default function Page() {
                     </div>
 
                     <div class="toolbar">
+                        \${navigator.userAgent !== 'Streamline-Bridge' ? '<button class="toolbar-button" onclick="openPluginSettings()" title="Plugin Settings">🔌</button>' : ''}
                         <button class="toolbar-button" onclick="openSettings()" title="Settings">⚙️</button>
                     </div>
                 </div>
@@ -1747,6 +1753,22 @@ export default function Page() {
     />
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
