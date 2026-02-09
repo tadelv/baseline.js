@@ -25,7 +25,7 @@ jobs:
 
       - name: Create manifest.json
         run: |
-          cat > out/manifest.json << EOF
+          cat > dist/manifest.json << EOF
           {
             "id": "decent.baseline",
             "name": "Baseline",
@@ -36,7 +36,7 @@ jobs:
 
       - name: Create release archive
         run: |
-          cd out
+          cd dist
           zip -r ../baseline-skin.zip .
           cd ..
 
@@ -47,3 +47,6 @@ jobs:
           tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
