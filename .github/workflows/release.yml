@@ -1,5 +1,8 @@
 name: Build and Release Skin
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
@@ -45,8 +48,4 @@ jobs:
         with:
           files: baseline-skin.zip
           tag_name: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
 
