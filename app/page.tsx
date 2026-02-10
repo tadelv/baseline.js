@@ -1344,29 +1344,28 @@ export default function Page() {
         }
 
         // ============ CANVAS VISUALIZATIONS ============
-        // Data-driven particle animation for brewing
+        // Simplified brewing animation similar to sleep animation
         let brewingParticles = null;
         let smoothedPressure = 0;
         let smoothedFlow = 0;
-        let smoothedCombined = 0;
         
         function initBrewingParticles() {
-            const count = 10; // Further reduced for smoothness
+            const count = 30;
             brewingParticles = Array.from({ length: count }, (_, i) => ({
-                offsetX: Math.random() * 600 - 300,
-                offsetY: Math.random() * 600 - 300,
-                speedX: 0.08 + Math.random() * 0.2,
-                speedY: 0.1 + Math.random() * 0.18,
+                offsetX: Math.random() * 400 - 200,
+                offsetY: Math.random() * 400 - 200,
+                speedX: 0.1 + Math.random() * 0.3,
+                speedY: 0.15 + Math.random() * 0.25,
                 phaseX: Math.random() * Math.PI * 2,
                 phaseY: Math.random() * Math.PI * 2,
-                baseSize: 30 + Math.random() * 50,
-                pulseSpeed: 0.15 + Math.random() * 0.3,
+                baseSize: 25 + Math.random() * 50,
+                pulseSpeed: 0.2 + Math.random() * 0.4,
                 pulsePhase: Math.random() * Math.PI * 2,
-                pulseAmount: 0.25 + Math.random() * 0.4,
-                hue: i % 4 === 0 ? 210 : (i % 4 === 1 ? 180 : (i % 4 === 2 ? 160 : 200)),
+                pulseAmount: 0.3 + Math.random() * 0.5,
+                hue: i % 3 === 0 ? 200 : (i % 3 === 1 ? 180 : 220),
                 saturation: 60 + Math.random() * 30,
-                baseOpacity: 0.08 + Math.random() * 0.12,
-                opacitySpeed: 0.12 + Math.random() * 0.2,
+                baseOpacity: 0.1 + Math.random() * 0.15,
+                opacitySpeed: 0.15 + Math.random() * 0.25,
                 opacityPhase: Math.random() * Math.PI * 2,
             }));
         }
@@ -1388,34 +1387,31 @@ export default function Page() {
             const centerY = canvas.height / 2;
             const time = Date.now() / 1000;
 
-            // Stronger fade effect for smoother trails
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+            // Fade effect for trails
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.2)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Low-pass filter with much stronger smoothing
-            const smoothingFactor = 0.03; // Very low for gentle transitions (was 0.08)
+            // Smooth data values
+            const smoothingFactor = 0.05;
             smoothedPressure += (STATE.currentPressure - smoothedPressure) * smoothingFactor;
             smoothedFlow += (STATE.currentFlow - smoothedFlow) * smoothingFactor;
-            smoothedCombined += ((STATE.currentPressure + STATE.currentFlow) / 2 - smoothedCombined) * smoothingFactor;
 
-            // Data-driven intensity multipliers using smoothed values with reduced impact
-            const pressureIntensity = 1 + smoothedPressure * 0.15; // Reduced from 0.3
-            const flowIntensity = 1 + smoothedFlow * 0.2; // Reduced from 0.4
-            const combinedIntensity = smoothedCombined * 0.5; // Dampened by 50%
+            // Subtle data-driven intensity
+            const intensity = 1 + (smoothedPressure + smoothedFlow) * 0.02;
 
-            // Draw particles with data-driven properties
+            // Draw particles
             brewingParticles.forEach((p) => {
-                const x = centerX + p.offsetX + Math.sin(time * p.speedX * pressureIntensity + p.phaseX) * 50;
-                const y = centerY + p.offsetY + Math.cos(time * p.speedY * flowIntensity + p.phaseY) * 50;
+                const x = centerX + p.offsetX + Math.sin(time * p.speedX * intensity + p.phaseX) * 160;
+                const y = centerY + p.offsetY + Math.cos(time * p.speedY * intensity + p.phaseY) * 160;
                 
-                const pulse = Math.sin(time * p.pulseSpeed * flowIntensity + p.pulsePhase) * p.pulseAmount;
-                const size = p.baseSize * (1 + pulse) * (1 + combinedIntensity * 0.3);
+                const pulse = Math.sin(time * p.pulseSpeed + p.pulsePhase) * p.pulseAmount;
+                const size = p.baseSize * (1 + pulse) * intensity;
                 const opacityWave = Math.sin(time * p.opacitySpeed + p.opacityPhase) * 0.5 + 0.5;
-                const opacity = p.baseOpacity * opacityWave * (1 + combinedIntensity * 0.5);
+                const opacity = p.baseOpacity * opacityWave;
                 
                 const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
                 gradient.addColorStop(0, \`hsla(\${p.hue}, \${p.saturation}%, 70%, \${opacity})\`);
-                gradient.addColorStop(0.5, \`hsla(\${p.hue}, \${p.saturation}%, 60%, \${opacity * 0.4})\`);
+                gradient.addColorStop(0.5, \`hsla(\${p.hue}, \${p.saturation}%, 60%, \${opacity * 0.5})\`);
                 gradient.addColorStop(1, \`hsla(\${p.hue}, \${p.saturation}%, 50%, 0)\`);
                 
                 ctx.fillStyle = gradient;
@@ -1424,16 +1420,15 @@ export default function Page() {
                 ctx.fill();
             });
             
-            // Breathing overlay driven by brewing data
+            // Breathing overlay
             const breathe = Math.sin(time * 0.4) * 0.5 + 0.5;
-            const dataBreath = breathe * combinedIntensity;
             const overlayGradient = ctx.createRadialGradient(
                 centerX, centerY, 0,
                 centerX, centerY, Math.max(canvas.width, canvas.height) / 2
             );
-            overlayGradient.addColorStop(0, \`rgba(139, 92, 246, \${dataBreath * 0.08})\`);
-            overlayGradient.addColorStop(0.5, \`rgba(59, 130, 246, \${dataBreath * 0.04})\`);
-            overlayGradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
+            overlayGradient.addColorStop(0, \`rgba(59, 130, 246, \${breathe * intensity * 0.04})\`);
+            overlayGradient.addColorStop(0.5, \`rgba(139, 92, 246, \${breathe * intensity * 0.02})\`);
+            overlayGradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
             ctx.fillStyle = overlayGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -1753,6 +1748,7 @@ export default function Page() {
     />
   );
 }
+
 
 
 
