@@ -143,7 +143,7 @@ Baseline.js is a reference project to help developers understand how to build cu
 
 ## License
 
-Copyright (c) 2026 Decent Espresso. Licensed under GPL v3.
+Copyright (c) 2026 Decent Espresso. Licensed under [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html#license-text).
 
 ## Acknowledgments
 
