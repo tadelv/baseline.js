@@ -711,8 +711,31 @@ export default function Page() {
             scaleConnected: false,
             scaleScanInterval: null,
             currentWeight: 0,
-            targetWeightReached: false
+            targetWeightReached: false,
+            waterLevelMm: 0,
+            waterLevelLiters: 0,
+            waterLevelWs: null
         };
+
+        // Water level mm-to-ml lookup table (from DE1 TCL implementation)
+        // Index = mm, value = ml. Raw reading gets +5mm correction.
+        const WATER_MM_TO_ML = [
+            0, 16, 43, 70, 97, 124, 151, 179, 206, 233,
+            261, 288, 316, 343, 371, 398, 426, 453, 481, 509,
+            537, 564, 592, 620, 648, 676, 704, 732, 760, 788,
+            816, 844, 872, 900, 929, 957, 985, 1013, 1042, 1070,
+            1104, 1138, 1172, 1207, 1242, 1277, 1312, 1347, 1382, 1417,
+            1453, 1488, 1523, 1559, 1594, 1630, 1665, 1701, 1736, 1772,
+            1808, 1843, 1879, 1915, 1951, 1986, 2022, 2058
+        ];
+
+        function waterMmToLiters(rawMm) {
+            const correctedMm = rawMm + 5;
+            const index = Math.min(Math.floor(correctedMm), WATER_MM_TO_ML.length - 1);
+            if (index < 0) return 0;
+            const ml = WATER_MM_TO_ML[index] || 2058;
+            return ml / 1000;
+        }
 
         // ============ STORAGE ============
         function saveSettings() {
@@ -901,6 +924,35 @@ export default function Page() {
             if (STATE.webSocket) {
                 STATE.webSocket.close();
                 STATE.webSocket = null;
+            }
+        }
+
+        function connectWaterLevelWebSocket() {
+            const wsUrl = CONFIG.apiUrl.replace('http', 'ws') + '/ws/v1/machine/waterLevels';
+            try {
+                STATE.waterLevelWs = new WebSocket(wsUrl);
+                STATE.waterLevelWs.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    STATE.waterLevelMm = data.currentLevel || 0;
+                    STATE.waterLevelLiters = waterMmToLiters(STATE.waterLevelMm);
+                    updateWaterLevelDisplay();
+                };
+                STATE.waterLevelWs.onclose = () => {
+                    setTimeout(connectWaterLevelWebSocket, 5000);
+                };
+                STATE.waterLevelWs.onerror = (error) => {
+                    console.error('[v0] Water level WebSocket error:', error);
+                };
+            } catch (error) {
+                console.error('[v0] Failed to connect water level WebSocket:', error);
+            }
+        }
+
+        function updateWaterLevelDisplay() {
+            const el = document.querySelector('.water-level-display');
+            if (el) {
+                el.textContent = STATE.waterLevelLiters.toFixed(1) + 'L';
+                el.style.color = STATE.waterLevelLiters < 0.3 ? '#ef4444' : 'rgba(224, 224, 224, 0.6)';
             }
         }
 
@@ -1152,6 +1204,7 @@ export default function Page() {
                         </div>
                         <div class="status-text">\${STATE.machineState}</div>
                         \${STATE.currentTemperature > 0 ? '<div class="status-text" style="font-size: 1.5rem; font-weight: 600; margin-top: 0.25rem;">' + STATE.currentTemperature.toFixed(1) + '\u00B0C</div>' : ''}
+                        <div class="water-level-display" style="font-size: 0.85rem; opacity: 0.6; margin-top: 0.25rem;">\${STATE.waterLevelLiters.toFixed(1)}L</div>
                     </div>
 
                     <div class="center-content">
@@ -1720,6 +1773,7 @@ export default function Page() {
         async function init() {
             console.log('[v0] Baseline starting...');
             startStatusCheck();
+            connectWaterLevelWebSocket();
             await getMachineState();
             await getProfiles();
             
