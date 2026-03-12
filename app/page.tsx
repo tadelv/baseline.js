@@ -771,7 +771,7 @@ export default function Page() {
             }
         }
 
-        // ============ API CALLS ============
+        // ============ API LAYER ============
         async function apiCall(endpoint, options = {}) {
             try {
                 const response = await fetch(\`\${CONFIG.apiUrl}\${endpoint}\`, {
@@ -883,6 +883,7 @@ export default function Page() {
             });
         }
 
+        // ============ WEBSOCKETS ============
         function connectScaleWebSocket() {
             const wsUrl = CONFIG.apiUrl.replace('http', 'ws') + '/ws/v1/scale/snapshot';
             try {
@@ -947,7 +948,6 @@ export default function Page() {
                     STATE.currentPressure = data.pressure || 0;
                     STATE.currentFlow = data.flow || 0;
                     renderBrewingVisualization();
-                    console.log("have", data.flow, data.pressure);
                 };
                 STATE.webSocket.onerror = (error) => {
                     console.error('[v0] WebSocket error:', error);
@@ -1025,7 +1025,7 @@ export default function Page() {
             apiCall('/api/v1/machine/heartbeat', { method: 'POST' });
         }
 
-        // ============ STATUS CHECK ============
+        // ============ STATE MACHINE ============
         function startStatusCheck() {
             STATE.statusCheckInterval = setInterval(async () => {
                 await getMachineState();
