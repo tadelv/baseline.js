@@ -714,7 +714,8 @@ export default function Page() {
             targetWeightReached: false,
             waterLevelMm: 0,
             waterLevelLiters: 0,
-            waterLevelWs: null
+            waterLevelWs: null,
+            displayWs: null
         };
 
         // Water level mm-to-ml lookup table (from DE1 TCL implementation)
@@ -956,6 +957,30 @@ export default function Page() {
             }
         }
 
+        function connectDisplayWebSocket() {
+            const wsUrl = CONFIG.apiUrl.replace('http', 'ws') + '/ws/v1/display';
+            try {
+                STATE.displayWs = new WebSocket(wsUrl);
+                STATE.displayWs.onopen = () => {
+                    STATE.displayWs.send(JSON.stringify({ command: 'requestWakeLock' }));
+                };
+                STATE.displayWs.onclose = () => {
+                    setTimeout(connectDisplayWebSocket, 5000);
+                };
+                STATE.displayWs.onerror = (error) => {
+                    console.error('[v0] Display WebSocket error:', error);
+                };
+            } catch (error) {
+                console.error('[v0] Failed to connect display WebSocket:', error);
+            }
+        }
+
+        function sendDisplayCommand(command) {
+            if (STATE.displayWs && STATE.displayWs.readyState === WebSocket.OPEN) {
+                STATE.displayWs.send(JSON.stringify({ command }));
+            }
+        }
+
         // ============ STATUS CHECK ============
         function startStatusCheck() {
             STATE.statusCheckInterval = setInterval(async () => {
@@ -970,6 +995,7 @@ export default function Page() {
                 // Auto-transition to sleep if machine state changes
                 if (STATE.machineState === 'sleeping' && STATE.screen === 'main') {
                     STATE.screen = 'sleep';
+                    sendDisplayCommand('dim');
                     render();
                 }
 
@@ -1151,6 +1177,7 @@ export default function Page() {
 
         async function sleep() {
             disconnectWebSocket();
+            sendDisplayCommand('dim');
             STATE.screen = 'sleep';
             render();
         }
@@ -1162,7 +1189,7 @@ export default function Page() {
 
         async function wakeUp() {
             STATE.screen = 'main';
-
+            sendDisplayCommand('restore');
 
             await wakeMachine(); 
             // Set the profile when waking up
@@ -1774,6 +1801,7 @@ export default function Page() {
             console.log('[v0] Baseline starting...');
             startStatusCheck();
             connectWaterLevelWebSocket();
+            connectDisplayWebSocket();
             await getMachineState();
             await getProfiles();
             
