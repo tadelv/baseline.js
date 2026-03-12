@@ -981,6 +981,14 @@ export default function Page() {
             }
         }
 
+        let lastHeartbeat = 0;
+        function sendHeartbeat() {
+            const now = Date.now();
+            if (now - lastHeartbeat < 30000) return;
+            lastHeartbeat = now;
+            apiCall('/api/v1/machine/heartbeat', { method: 'POST' });
+        }
+
         // ============ STATUS CHECK ============
         function startStatusCheck() {
             STATE.statusCheckInterval = setInterval(async () => {
@@ -1802,6 +1810,10 @@ export default function Page() {
             startStatusCheck();
             connectWaterLevelWebSocket();
             connectDisplayWebSocket();
+
+            // Presence heartbeat on user interaction
+            document.addEventListener('click', sendHeartbeat);
+            document.addEventListener('touchstart', sendHeartbeat);
             await getMachineState();
             await getProfiles();
             
