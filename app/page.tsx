@@ -738,13 +738,36 @@ export default function Page() {
             return ml / 1000;
         }
 
-        // ============ STORAGE ============
+        // ============ STORAGE (KV Store + localStorage) ============
         function saveSettings() {
+            // Always save to localStorage as fallback
             localStorage.setItem('baselineApiUrl', CONFIG.apiUrl);
             localStorage.setItem('baselineCoffeeWeight', CONFIG.coffeeWeight);
             localStorage.setItem('baselineGrinderSetting', CONFIG.grinderSetting);
             localStorage.setItem('baselineProfile', CONFIG.profile);
             localStorage.setItem('baselineClockFormat', CONFIG.clockFormat);
+
+            // Sync to KV store (apiUrl excluded — needed to find the Bridge)
+            const kvData = {
+                coffeeWeight: CONFIG.coffeeWeight,
+                grinderSetting: CONFIG.grinderSetting,
+                profile: CONFIG.profile,
+                clockFormat: CONFIG.clockFormat
+            };
+            apiCall('/api/v1/store/baseline/config', {
+                method: 'POST',
+                body: JSON.stringify(kvData)
+            });
+        }
+
+        async function loadSettingsFromKvStore() {
+            const data = await apiCall('/api/v1/store/baseline/config');
+            if (data) {
+                if (data.coffeeWeight != null) CONFIG.coffeeWeight = parseInt(data.coffeeWeight);
+                if (data.grinderSetting != null) CONFIG.grinderSetting = parseInt(data.grinderSetting);
+                if (data.profile != null) CONFIG.profile = data.profile;
+                if (data.clockFormat != null) CONFIG.clockFormat = data.clockFormat;
+            }
         }
 
         // ============ API CALLS ============
@@ -1807,6 +1830,7 @@ export default function Page() {
         // ============ INITIALIZATION ============
         async function init() {
             console.log('[v0] Baseline starting...');
+            await loadSettingsFromKvStore();
             startStatusCheck();
             connectWaterLevelWebSocket();
             connectDisplayWebSocket();
