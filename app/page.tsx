@@ -735,7 +735,7 @@ export default function Page() {
             const correctedMm = rawMm + 5;
             const index = Math.min(Math.floor(correctedMm), WATER_MM_TO_ML.length - 1);
             if (index < 0) return 0;
-            const ml = WATER_MM_TO_ML[index] || 2058;
+            const ml = WATER_MM_TO_ML[index] ?? 2058;
             return ml / 1000;
         }
 
