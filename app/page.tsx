@@ -590,6 +590,11 @@ export default function Page() {
             transform: scale(0.95);
         }
 
+        .power-button svg {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+
         /* ANIMATIONS */
         @keyframes fadeIn {
             from {
@@ -1131,7 +1136,7 @@ export default function Page() {
             return \`
                 <div class="main-screen">
                     <canvas id="ambientCanvas"></canvas>
-                    <button class="power-button" onclick="sleepMachineAndTransition()" title="Sleep Machine">⏻</button>
+                    <button class="power-button" onclick="sleepMachineAndTransition()" title="Sleep Machine"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg></button>
 
                     <div class="status-area">
                         <div class="status-indicator">
