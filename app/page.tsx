@@ -686,7 +686,7 @@ export default function Page() {
     <script>
         // ============ CONFIG & STATE ============
         const CONFIG = {
-            apiUrl: localStorage.getItem('baselineApiUrl') || 'http://localhost:8080',
+            apiUrl: localStorage.getItem('baselineApiUrl') || (window.location.protocol + '//' + window.location.hostname + ':8080'),
             coffeeWeight: parseInt(localStorage.getItem('baselineCoffeeWeight')) || 20,
             grinderSetting: parseInt(localStorage.getItem('baselineGrinderSetting')) || 5,
             profile: localStorage.getItem('baselineProfile') || 'default',
@@ -704,8 +704,7 @@ export default function Page() {
             currentTemperature: 0,
             steamTemperature: 0,
             brewingStartTime: null,
-            statusCheckInterval: null,
-            webSocket: null,
+            machineSnapshotWs: null,
             scaleWebSocket: null,
             previousMachineState: null, // Track previous state to prevent unnecessary re-renders
             scaleConnected: false,
@@ -789,15 +788,18 @@ export default function Page() {
             }
         }
 
+        function updateMachineState(data) {
+            if (!data) return;
+            const newState = data.state?.state || 'disconnected';
+            STATE.machineState = newState;
+            STATE.machineReady = newState === 'idle';
+            STATE.currentTemperature = data.groupTemperature || data.mixTemperature || 0;
+            STATE.steamTemperature = data.steamTemperature || 0;
+        }
+
         async function getMachineState() {
             const data = await apiCall('/api/v1/machine/state');
-            if (data) {
-                const newState = data.state?.state || 'disconnected';
-                STATE.machineState = newState;
-                STATE.machineReady = newState === 'idle';
-                STATE.currentTemperature = data.groupTemperature || data.mixTemperature || 0;
-                STATE.steamTemperature = data.steamTemperature || 0;
-            }
+            updateMachineState(data);
             return data;
         }
 
@@ -939,28 +941,55 @@ export default function Page() {
             });
         }
 
-        function connectWebSocket() {
+        function connectMachineSnapshotWebSocket() {
             const wsUrl = CONFIG.apiUrl.replace('http', 'ws') + '/ws/v1/machine/snapshot';
             try {
-                STATE.webSocket = new WebSocket(wsUrl);
-                STATE.webSocket.onmessage = (event) => {
+                STATE.machineSnapshotWs = new WebSocket(wsUrl);
+                STATE.machineSnapshotWs.onmessage = (event) => {
                     const data = JSON.parse(event.data);
-                    STATE.currentPressure = data.pressure || 0;
-                    STATE.currentFlow = data.flow || 0;
-                    renderBrewingVisualization();
+
+                    // Update machine state from snapshot
+                    updateMachineState(data);
+
+                    if (STATE.previousMachineState !== STATE.machineState) {
+                        STATE.previousMachineState = STATE.machineState;
+                        render();
+                    }
+
+                    // Auto-transition to sleep
+                    if (STATE.machineState === 'sleeping' && STATE.screen === 'main') {
+                        STATE.screen = 'sleep';
+                        sendDisplayCommand('dim');
+                        render();
+                    }
+
+                    // Auto-transition to brewing visualization
+                    if (STATE.machineState === 'espresso' && STATE.screen === 'carousel') {
+                        STATE.screen = 'brewing';
+                        render();
+                    }
+
+                    // Auto-transition to brewing done
+                    if (STATE.machineState === 'idle' && STATE.screen === 'brewing') {
+                        STATE.screen = 'done';
+                        render();
+                    }
+
+                    // Update brewing data when on brewing screen
+                    if (STATE.screen === 'brewing') {
+                        STATE.currentPressure = data.pressure || 0;
+                        STATE.currentFlow = data.flow || 0;
+                        renderBrewingVisualization();
+                    }
                 };
-                STATE.webSocket.onerror = (error) => {
-                    console.error('[v0] WebSocket error:', error);
+                STATE.machineSnapshotWs.onclose = () => {
+                    setTimeout(connectMachineSnapshotWebSocket, 5000);
+                };
+                STATE.machineSnapshotWs.onerror = (error) => {
+                    console.error('[v0] Machine snapshot WebSocket error:', error);
                 };
             } catch (error) {
-                console.error('[v0] Failed to connect WebSocket:', error);
-            }
-        }
-
-        function disconnectWebSocket() {
-            if (STATE.webSocket) {
-                STATE.webSocket.close();
-                STATE.webSocket = null;
+                console.error('[v0] Failed to connect machine snapshot WebSocket:', error);
             }
         }
 
@@ -1026,39 +1055,6 @@ export default function Page() {
         }
 
         // ============ STATE MACHINE ============
-        function startStatusCheck() {
-            STATE.statusCheckInterval = setInterval(async () => {
-                await getMachineState();
-
-                // Only render if state actually changed
-                if (STATE.previousMachineState !== STATE.machineState) {
-                    STATE.previousMachineState = STATE.machineState;
-                    render();
-                }
-
-                // Auto-transition to sleep if machine state changes
-                if (STATE.machineState === 'sleeping' && STATE.screen === 'main') {
-                    STATE.screen = 'sleep';
-                    sendDisplayCommand('dim');
-                    render();
-                }
-
-                // Auto-transition to brewing visualization
-                if (STATE.machineState === 'espresso' && STATE.screen === 'carousel') {
-                    STATE.screen = 'brewing';
-                    disconnectWebSocket();
-                    connectWebSocket();
-                    render();
-                }
-
-                // Auto-transition to brewing done
-                if (STATE.machineState === 'idle' && STATE.screen === 'brewing') {
-                    STATE.screen = 'done';
-                    disconnectWebSocket();
-                    render();
-                }
-            }, 1000);
-        }
 
         // ============ UI HANDLERS ============
         async function openCarousel() {
@@ -1213,7 +1209,6 @@ export default function Page() {
         }
 
         function makeAnother() {
-            disconnectWebSocket();
             STATE.screen = 'main';
             STATE.carouselStep = 0;
             STATE.brewingStartTime = null;
@@ -1221,7 +1216,6 @@ export default function Page() {
         }
 
         async function sleep() {
-            disconnectWebSocket();
             sendDisplayCommand('dim');
             STATE.screen = 'sleep';
             render();
@@ -1856,7 +1850,7 @@ export default function Page() {
         async function init() {
             console.log('[v0] Baseline starting...');
             await loadSettingsFromKvStore();
-            startStatusCheck();
+            connectMachineSnapshotWebSocket();
             connectWaterLevelWebSocket();
             connectDisplayWebSocket();
 
