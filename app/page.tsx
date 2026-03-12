@@ -825,7 +825,13 @@ export default function Page() {
             
             return await apiCall('/api/v1/workflow', {
                 method: 'PUT',
-                body: JSON.stringify({ profile: profile.profile })
+                body: JSON.stringify({
+                    profile: profile.profile,
+                    context: {
+                        targetDoseWeight: parseFloat(CONFIG.coffeeWeight),
+                        grinderSetting: String(CONFIG.grinderSetting)
+                    }
+                })
             });
         }
 
