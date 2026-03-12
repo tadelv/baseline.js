@@ -696,6 +696,8 @@ export default function Page() {
             profiles: [],
             currentPressure: 0,
             currentFlow: 0,
+            currentTemperature: 0,
+            steamTemperature: 0,
             brewingStartTime: null,
             statusCheckInterval: null,
             webSocket: null,
@@ -740,6 +742,8 @@ export default function Page() {
                 const newState = data.state?.state || 'disconnected';
                 STATE.machineState = newState;
                 STATE.machineReady = newState === 'idle';
+                STATE.currentTemperature = data.groupTemperature || data.mixTemperature || 0;
+                STATE.steamTemperature = data.steamTemperature || 0;
             }
             return data;
         }
@@ -846,8 +850,8 @@ export default function Page() {
         }
 
         async function startBrewing() {
-            return await apiCall('/api/v1/workflow/start', {
-                method: 'POST'
+            return await apiCall('/api/v1/machine/state/espresso', {
+                method: 'PUT'
             });
         }
 
@@ -901,7 +905,7 @@ export default function Page() {
                 }
 
                 // Auto-transition to sleep if machine state changes
-                if (STATE.machineState === 'sleep' && STATE.screen === 'main') {
+                if (STATE.machineState === 'sleeping' && STATE.screen === 'main') {
                     STATE.screen = 'sleep';
                     render();
                 }
@@ -1107,13 +1111,19 @@ export default function Page() {
 
         // ============ RENDERING ============
         function getStatusDisplay() {
-            if (STATE.machineState === 'disconnected') {
-                return { class: 'disconnected', text: 'Not Connected' };
-            }
-            if (STATE.machineReady) {
-                return { class: 'connected ready', text: 'Ready to Brew' };
-            }
-            return { class: 'connected not-ready', text: 'Warming Up' };
+            const s = STATE.machineState;
+            if (s === 'disconnected') return { class: 'disconnected', text: 'Not Connected' };
+            if (s === 'error') return { class: 'disconnected', text: 'Error' };
+            if (s === 'needsWater') return { class: 'disconnected', text: 'Needs Water' };
+            if (s === 'idle') return { class: 'connected ready', text: 'Ready to Brew' };
+            if (s === 'sleeping') return { class: 'connected not-ready', text: 'Sleeping' };
+            if (s === 'heating' || s === 'preheating' || s === 'booting') return { class: 'connected not-ready', text: 'Warming Up' };
+            if (s === 'espresso') return { class: 'connected ready', text: 'Brewing' };
+            if (s === 'steam') return { class: 'connected ready', text: 'Steaming' };
+            if (s === 'hotWater') return { class: 'connected ready', text: 'Hot Water' };
+            if (s === 'flush' || s === 'steamRinse') return { class: 'connected not-ready', text: 'Flushing' };
+            if (s === 'cleaning' || s === 'descaling') return { class: 'connected not-ready', text: 'Cleaning' };
+            return { class: 'connected not-ready', text: s };
         }
 
         function renderMainScreen() {
@@ -1129,6 +1139,7 @@ export default function Page() {
                             <span>\${status.text}</span>
                         </div>
                         <div class="status-text">\${STATE.machineState}</div>
+                        \${STATE.currentTemperature > 0 ? '<div class="status-text" style="font-size: 1.5rem; font-weight: 600; margin-top: 0.25rem;">' + STATE.currentTemperature.toFixed(1) + '\u00B0C</div>' : ''}
                     </div>
 
                     <div class="center-content">
