@@ -712,6 +712,7 @@ export default function Page() {
             scaleScanInterval: null,
             currentWeight: 0,
             targetWeightReached: false,
+            machineInfo: null,
             waterLevelMm: 0,
             waterLevelLiters: 0,
             waterLevelWs: null,
@@ -797,6 +798,12 @@ export default function Page() {
                 STATE.currentTemperature = data.groupTemperature || data.mixTemperature || 0;
                 STATE.steamTemperature = data.steamTemperature || 0;
             }
+            return data;
+        }
+
+        async function getMachineInfo() {
+            const data = await apiCall('/api/v1/machine/info');
+            if (data) STATE.machineInfo = data;
             return data;
         }
 
@@ -1160,8 +1167,9 @@ export default function Page() {
             }
         }
 
-        function openSettings() {
+        async function openSettings() {
             STATE.screen = 'settings';
+            await getMachineInfo();
             render();
         }
 
@@ -1437,6 +1445,17 @@ export default function Page() {
                                 <option value="12" \${CONFIG.clockFormat === '12' ? 'selected' : ''}>12 Hour</option>
                             </select>
                         </div>
+
+                        \${STATE.machineInfo ? \`
+                        <div class="setting-group" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 0.5rem;">
+                            <label class="setting-label" style="opacity: 0.5;">Machine Info</label>
+                            <div style="font-size: 0.85rem; opacity: 0.5; line-height: 1.6;">
+                                \${STATE.machineInfo.model ? 'Model: ' + STATE.machineInfo.model + '<br>' : ''}
+                                \${STATE.machineInfo.serialNumber ? 'Serial: ' + STATE.machineInfo.serialNumber + '<br>' : ''}
+                                \${STATE.machineInfo.version ? 'Firmware: ' + STATE.machineInfo.version : ''}
+                            </div>
+                        </div>
+                        \` : ''}
 
                         <div class="settings-buttons">
                             <button class="settings-button cancel" onclick="closeSettings()">Cancel</button>
