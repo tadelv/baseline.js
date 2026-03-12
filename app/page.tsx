@@ -817,6 +817,12 @@ export default function Page() {
             });
         }
 
+        async function tareScale() {
+            return await apiCall('/api/v1/scale/tare', {
+                method: 'PUT'
+            });
+        }
+
         function connectScaleWebSocket() {
             const wsUrl = CONFIG.apiUrl.replace('http', 'ws') + '/ws/v1/scale/snapshot';
             try {
@@ -1025,8 +1031,9 @@ export default function Page() {
                 const step = steps[STATE.carouselStep];
                 const progress = Array.from({ length: 7 }, (_, i) => \`<div class="progress-dot \${i === STATE.carouselStep ? 'active' : ''}"></div>\`).join('');
                 
-                const weightDisplay = step.showWeight 
-                    ? \`<p class="weight-display" style="font-size: 1.2rem; font-weight: 600; margin-top: 1rem;">\${STATE.currentWeight.toFixed(1)}g / \${CONFIG.coffeeWeight}g</p>\`
+                const weightDisplay = step.showWeight
+                    ? \`<p class="weight-display" style="font-size: 1.2rem; font-weight: 600; margin-top: 1rem;">\${STATE.currentWeight.toFixed(1)}g / \${CONFIG.coffeeWeight}g</p>
+                       <button onclick="tareScale()" style="margin-top: 0.5rem; padding: 0.4rem 1.2rem; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; border-radius: 0.5rem; cursor: pointer; font-size: 0.85rem;" \${!STATE.scaleConnected ? 'disabled' : ''}>Tare Scale</button>\`
                     : '';
 
                 carousel.innerHTML = \`
