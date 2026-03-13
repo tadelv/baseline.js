@@ -225,3 +225,31 @@ Always refer to the [Streamline-Bridge repository](https://github.com/tadelv/rea
 ---
 
 Remember: This is a showcase and learning tool. Keep it simple, well-documented, and true to its educational purpose.
+
+## Design Context
+
+### Users
+Home espresso enthusiasts using this interface on a screen near their machine (typically Streamline-Bridge's embedded webview or a tablet). They interact while their hands may be busy with coffee prep — the UI must be glanceable and operable with minimal attention. Think appliance interface, not power-user dashboard.
+
+### Brand Personality
+**Simple, inviting, effortless.** The interface should feel like a friendly appliance that anyone could operate — so intuitive a toddler could use it. No learning curve, no cognitive overhead. Quiet confidence over technical complexity.
+
+### Aesthetic Direction
+- **Reference**: Apple Home — sparse, generous whitespace, understated controls
+- **Anti-reference**: Dense data dashboards, cluttered settings panels, anything that looks like a developer tool
+- **Theme**: Dark mode (deep navy `#0a0e27`) with blue accent gradients. Subtle glassmorphism and canvas particle animations add atmosphere without distraction
+- **Typography**: System font stack (-apple-system), uppercase status labels with letter-spacing, large readable text
+- **Color semantics**: Green = ready, yellow = warming/caution, red = error/disconnected, blue = primary actions
+
+### Accessibility
+- WCAG 2.1 AA minimum across the interface
+- Respect `prefers-reduced-motion` — disable or simplify all canvas animations and CSS transitions
+- Touch targets minimum 44x44px for the kiosk/tablet context
+- Maintain sufficient contrast ratios on the dark background
+
+### Design Principles
+1. **One glance, one action.** Every screen should communicate its state and primary action instantly. No hunting, no reading paragraphs.
+2. **Appliance-grade simplicity.** Fewer choices, bigger targets, clearer labels. Remove anything that doesn't serve the immediate task.
+3. **Ambient, not anxious.** Animations and status indicators should feel calming and informative, never urgent or flashy. The UI recedes when things are going well.
+4. **Progressive disclosure.** Settings and advanced options exist but stay hidden until sought. The happy path is front and center.
+5. **Touch-first, always.** Design for fingers on a screen near a coffee machine — generous spacing, forgiving tap areas, swipe-friendly navigation.

@@ -247,7 +247,6 @@ export default function Page() {
         }
 
         .carousel-step input:focus {
-            outline: none;
             border-color: #3b82f6;
         }
 
@@ -469,7 +468,6 @@ export default function Page() {
         }
 
         .setting-input:focus {
-            outline: none;
             border-color: #3b82f6;
         }
 
@@ -678,6 +676,46 @@ export default function Page() {
                 padding: 1.5rem;
             }
         }
+
+        /* FOCUS STYLES */
+        :focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        .coffee-button:focus-visible {
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4), 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+
+        .carousel-step input:focus-visible,
+        .setting-input:focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: -1px;
+            border-color: #3b82f6;
+        }
+
+        /* REDUCED MOTION */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* VISUALLY HIDDEN (for screen reader text) */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
     </style>
 </head>
 <body>
@@ -709,6 +747,7 @@ export default function Page() {
             previousMachineState: null, // Track previous state to prevent unnecessary re-renders
             scaleConnected: false,
             scaleScanInterval: null,
+            devicesWs: null,
             currentWeight: 0,
             targetWeightReached: false,
             machineInfo: null,
@@ -781,7 +820,8 @@ export default function Page() {
                     }
                 });
                 if (!response.ok) throw new Error(\`API error: \${response.status}\`);
-                return await response.json();
+                const text = await response.text();
+                return text ? JSON.parse(text) : null;
             } catch (error) {
                 console.error(\`[v0] API call failed for \${endpoint}:\`, error);
                 return null;
@@ -837,55 +877,100 @@ export default function Page() {
             });
         }
 
-        async function checkScaleConnection() {
-            const devices = await apiCall('/api/v1/devices');
-            const scale = devices?.find(d => d.type === 'scale');
-            return scale && scale.state === 'connected';
+        function connectDevicesWebSocket() {
+            const wsUrl = CONFIG.apiUrl.replace('http', 'ws') + '/ws/v1/devices';
+            try {
+                STATE.devicesWs = new WebSocket(wsUrl);
+                STATE.devicesWs.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+
+                    // Check scale connection state from devices list
+                    const scale = data.devices?.find(d => d.type === 'scale');
+                    const wasConnected = STATE.scaleConnected;
+                    STATE.scaleConnected = scale && scale.state === 'connected';
+
+                    // Handle ambiguity: auto-select first available scale
+                    if (data.connectionStatus?.pendingAmbiguity === 'scalePicker') {
+                        const scales = data.connectionStatus.foundScales;
+                        if (scales && scales.length > 0) {
+                            STATE.devicesWs.send(JSON.stringify({
+                                command: 'connect',
+                                deviceId: scales[0].id
+                            }));
+                        }
+                    }
+
+                    // Update carousel if scale connection changed
+                    if (wasConnected !== STATE.scaleConnected && STATE.screen === 'carousel') {
+                        renderCarouselOnly();
+                    }
+                };
+                STATE.devicesWs.onopen = () => resetReconnectDelay('devices');
+                STATE.devicesWs.onclose = () => {
+                    setTimeout(connectDevicesWebSocket, getReconnectDelay('devices'));
+                };
+                STATE.devicesWs.onerror = (error) => {
+                    console.error('[v0] Devices WebSocket error:', error);
+                };
+            } catch (error) {
+                console.error('[v0] Failed to connect devices WebSocket:', error);
+            }
+        }
+
+        function disconnectDevicesWebSocket() {
+            if (STATE.devicesWs) {
+                STATE.devicesWs.close();
+                STATE.devicesWs = null;
+            }
         }
 
         async function connectScale() {
-            // First check if scale is already connected
-            const isConnected = await checkScaleConnection();
-            if (isConnected) {
-                STATE.scaleConnected = true;
-                return true;
+            // Ensure devices WebSocket is connected
+            if (!STATE.devicesWs || STATE.devicesWs.readyState !== WebSocket.OPEN) {
+                connectDevicesWebSocket();
+                // Wait for connection
+                await new Promise(resolve => {
+                    const check = setInterval(() => {
+                        if (STATE.devicesWs?.readyState === WebSocket.OPEN) {
+                            clearInterval(check);
+                            resolve();
+                        }
+                    }, 100);
+                    setTimeout(() => { clearInterval(check); resolve(); }, 3000);
+                });
             }
 
-            // Trigger scan with auto-connect
-            await apiCall('/api/v1/devices/scan?connect=true', {
-                method: 'POST'
-            });
-
-            // Poll for scale connection
-            return new Promise((resolve) => {
-                let attempts = 0;
-                const maxAttempts = 10; // 10 seconds timeout
-                
-                STATE.scaleScanInterval = setInterval(async () => {
-                    attempts++;
-                    const connected = await checkScaleConnection();
-                    
-                    if (connected) {
-                        STATE.scaleConnected = true;
-                        clearInterval(STATE.scaleScanInterval);
-                        STATE.scaleScanInterval = null;
-                        resolve(true);
-                    } else if (attempts >= maxAttempts) {
-                        clearInterval(STATE.scaleScanInterval);
-                        STATE.scaleScanInterval = null;
-                        resolve(false);
-                    }
-                }, 1000);
-            });
+            // Send scan command via WebSocket
+            if (STATE.devicesWs?.readyState === WebSocket.OPEN) {
+                STATE.devicesWs.send(JSON.stringify({
+                    command: 'scan',
+                    connect: true
+                }));
+            }
         }
 
         async function tareScale() {
-            return await apiCall('/api/v1/scale/tare', {
+            const result = await apiCall('/api/v1/scale/tare', {
                 method: 'PUT'
             });
+            if (!result) {
+                console.warn('[v0] Tare not supported by this scale');
+            }
+            return result;
         }
 
         // ============ WEBSOCKETS ============
+        // Exponential backoff for reconnections
+        const wsReconnectDelays = {};
+        function getReconnectDelay(wsName) {
+            if (!wsReconnectDelays[wsName]) wsReconnectDelays[wsName] = 5000;
+            const delay = wsReconnectDelays[wsName];
+            wsReconnectDelays[wsName] = Math.min(delay * 2, 60000);
+            return delay;
+        }
+        function resetReconnectDelay(wsName) {
+            wsReconnectDelays[wsName] = 5000;
+        }
         function connectScaleWebSocket() {
             const wsUrl = CONFIG.apiUrl.replace('http', 'ws') + '/ws/v1/scale/snapshot';
             try {
@@ -950,6 +1035,7 @@ export default function Page() {
 
                     // Update machine state from snapshot
                     updateMachineState(data);
+                    updateTemperatureDisplay();
 
                     if (STATE.previousMachineState !== STATE.machineState) {
                         STATE.previousMachineState = STATE.machineState;
@@ -979,11 +1065,13 @@ export default function Page() {
                     if (STATE.screen === 'brewing') {
                         STATE.currentPressure = data.pressure || 0;
                         STATE.currentFlow = data.flow || 0;
-                        renderBrewingVisualization();
+                        // Animation loop is already running via requestAnimationFrame;
+                        // just update the data, don't start another loop
                     }
                 };
+                STATE.machineSnapshotWs.onopen = () => resetReconnectDelay('machineSnapshot');
                 STATE.machineSnapshotWs.onclose = () => {
-                    setTimeout(connectMachineSnapshotWebSocket, 5000);
+                    setTimeout(connectMachineSnapshotWebSocket, getReconnectDelay('machineSnapshot'));
                 };
                 STATE.machineSnapshotWs.onerror = (error) => {
                     console.error('[v0] Machine snapshot WebSocket error:', error);
@@ -1003,14 +1091,22 @@ export default function Page() {
                     STATE.waterLevelLiters = waterMmToLiters(STATE.waterLevelMm);
                     updateWaterLevelDisplay();
                 };
+                STATE.waterLevelWs.onopen = () => resetReconnectDelay('waterLevel');
                 STATE.waterLevelWs.onclose = () => {
-                    setTimeout(connectWaterLevelWebSocket, 5000);
+                    setTimeout(connectWaterLevelWebSocket, getReconnectDelay('waterLevel'));
                 };
                 STATE.waterLevelWs.onerror = (error) => {
                     console.error('[v0] Water level WebSocket error:', error);
                 };
             } catch (error) {
                 console.error('[v0] Failed to connect water level WebSocket:', error);
+            }
+        }
+
+        function updateTemperatureDisplay() {
+            const el = document.querySelector('.temperature-display');
+            if (el) {
+                el.textContent = STATE.currentTemperature > 0 ? STATE.currentTemperature.toFixed(1) + '\u00B0C' : '';
             }
         }
 
@@ -1027,10 +1123,11 @@ export default function Page() {
             try {
                 STATE.displayWs = new WebSocket(wsUrl);
                 STATE.displayWs.onopen = () => {
+                    resetReconnectDelay('display');
                     STATE.displayWs.send(JSON.stringify({ command: 'requestWakeLock' }));
                 };
                 STATE.displayWs.onclose = () => {
-                    setTimeout(connectDisplayWebSocket, 5000);
+                    setTimeout(connectDisplayWebSocket, getReconnectDelay('display'));
                 };
                 STATE.displayWs.onerror = (error) => {
                     console.error('[v0] Display WebSocket error:', error);
@@ -1073,25 +1170,27 @@ export default function Page() {
             STATE.screen = 'main';
             STATE.carouselStep = 0;
             disconnectScaleWebSocket();
-            if (STATE.scaleScanInterval) {
-                clearInterval(STATE.scaleScanInterval);
-                STATE.scaleScanInterval = null;
-            }
+            disconnectDevicesWebSocket();
             render();
         }
 
-        function nextStep() {
+        async function nextStep() {
+            if (STATE.carouselStep === 6) {
+                // Last step - start brewing
+                await startBrewing();
+                return;
+            }
             if (STATE.carouselStep < 6) {
                 // Start weight monitoring when entering step 1 (Weigh Coffee)
                 if (STATE.carouselStep === 0 && STATE.scaleConnected) {
                     connectScaleWebSocket();
                 }
-                
+
                 // Disconnect from scale after step 1
                 if (STATE.carouselStep === 1) {
                     disconnectScaleWebSocket();
                 }
-                
+
                 STATE.carouselStep++;
                 renderCarouselOnly();
             }
@@ -1147,23 +1246,26 @@ export default function Page() {
                 ];
 
                 const step = steps[STATE.carouselStep];
-                const progress = Array.from({ length: 7 }, (_, i) => \`<div class="progress-dot \${i === STATE.carouselStep ? 'active' : ''}"></div>\`).join('');
-                
+                const progress = Array.from({ length: 7 }, (_, i) => \`<div class="progress-dot \${i === STATE.carouselStep ? 'active' : ''}" aria-hidden="true"></div>\`).join('');
+
                 const weightDisplay = step.showWeight
-                    ? \`<p class="weight-display" style="font-size: 1.2rem; font-weight: 600; margin-top: 1rem;">\${STATE.currentWeight.toFixed(1)}g / \${CONFIG.coffeeWeight}g</p>
+                    ? \`<p class="weight-display" style="font-size: 1.2rem; font-weight: 600; margin-top: 1rem;" aria-live="polite">\${STATE.currentWeight.toFixed(1)}g / \${CONFIG.coffeeWeight}g</p>
                        <button onclick="tareScale()" style="margin-top: 0.5rem; padding: 0.4rem 1.2rem; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; border-radius: 0.5rem; cursor: pointer; font-size: 0.85rem;" \${!STATE.scaleConnected ? 'disabled' : ''}>Tare Scale</button>\`
                     : '';
 
                 carousel.innerHTML = \`
-                    <div class="carousel-progress">\${progress}</div>
-                    <div class="carousel-step">
+                    <div class="carousel-progress">
+                        \${progress}
+                        <span class="sr-only">Step \${STATE.carouselStep + 1} of 7</span>
+                    </div>
+                    <div class="carousel-step" aria-live="polite">
                         <h2>\${step.title}</h2>
                         <p style="color: \${STATE.carouselStep === 0 && STATE.scaleConnected ? '#4ade80' : 'inherit'}">\${step.description}</p>
                         \${weightDisplay}
                     </div>
                     <div class="carousel-controls">
                         <button class="carousel-btn prev" onclick="prevStep()" \${STATE.carouselStep === 0 ? 'disabled' : ''}>← Back</button>
-                        <button class="carousel-btn next" onclick="nextStep()" \${STATE.carouselStep === 6 ? 'disabled' : ''}>Next →</button>
+                        <button class="carousel-btn next" onclick="nextStep()">\${STATE.carouselStep === 6 ? 'Start ☕' : 'Next →'}</button>
                     </div>
                 \`;
             }
@@ -1259,31 +1361,31 @@ export default function Page() {
         function renderMainScreen() {
             const status = getStatusDisplay();
             return \`
-                <div class="main-screen">
-                    <canvas id="ambientCanvas"></canvas>
-                    <button class="power-button" onclick="sleepMachineAndTransition()" title="Sleep Machine"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg></button>
+                <main class="main-screen" aria-label="Espresso machine control">
+                    <canvas id="ambientCanvas" aria-hidden="true"></canvas>
+                    <button class="power-button" onclick="sleepMachineAndTransition()" aria-label="Sleep machine"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg></button>
 
-                    <div class="status-area">
+                    <div class="status-area" aria-live="polite" aria-atomic="true">
                         <div class="status-indicator">
-                            <div class="status-dot \${status.class}"></div>
+                            <div class="status-dot \${status.class}" aria-hidden="true"></div>
                             <span>\${status.text}</span>
                         </div>
                         <div class="status-text">\${STATE.machineState}</div>
-                        \${STATE.currentTemperature > 0 ? '<div class="status-text" style="font-size: 1.5rem; font-weight: 600; margin-top: 0.25rem;">' + STATE.currentTemperature.toFixed(1) + '\u00B0C</div>' : ''}
-                        <div class="water-level-display" style="font-size: 0.85rem; opacity: 0.6; margin-top: 0.25rem;">\${STATE.waterLevelLiters.toFixed(1)}L</div>
+                        <div class="status-text temperature-display" style="font-size: 1.5rem; font-weight: 600; margin-top: 0.25rem;" aria-label="Group temperature">\${STATE.currentTemperature > 0 ? STATE.currentTemperature.toFixed(1) + '\u00B0C' : ''}</div>
+                        <div class="water-level-display" style="font-size: 0.85rem; opacity: 0.6; margin-top: 0.25rem;" aria-label="Water level">\${STATE.waterLevelLiters.toFixed(1)}L</div>
                     </div>
 
                     <div class="center-content">
-                        <button class="coffee-button" onclick="openCarousel()" \${!STATE.machineReady ? 'disabled' : ''}>
+                        <button class="coffee-button" onclick="openCarousel()" \${!STATE.machineReady ? 'disabled aria-disabled="true"' : ''}>
                             ☕ Let's Make Coffee
                         </button>
                     </div>
 
-                    <div class="toolbar">
-                        \${navigator.userAgent !== 'Streamline-Bridge' ? '<button class="toolbar-button" onclick="openPluginSettings()" title="Plugin Settings">🔌</button>' : ''}
-                        <button class="toolbar-button" onclick="openSettings()" title="Settings">⚙️</button>
-                    </div>
-                </div>
+                    <nav class="toolbar" aria-label="Controls">
+                        \${navigator.userAgent !== 'Streamline-Bridge' ? '<button class="toolbar-button" onclick="openPluginSettings()" aria-label="Plugin settings">🔌</button>' : ''}
+                        <button class="toolbar-button" onclick="openSettings()" aria-label="Settings">⚙️</button>
+                    </nav>
+                </main>
             \`;
         }
 
@@ -1327,20 +1429,23 @@ export default function Page() {
             ];
 
             const step = steps[STATE.carouselStep];
-            const progress = Array.from({ length: 7 }, (_, i) => \`<div class="progress-dot \${i === STATE.carouselStep ? 'active' : ''}"></div>\`).join('');
+            const progress = Array.from({ length: 7 }, (_, i) => \`<div class="progress-dot \${i === STATE.carouselStep ? 'active' : ''}" aria-hidden="true"></div>\`).join('');
 
             return \`
-                <div class="carousel-overlay" onclick="event.target === this && closeCarousel()">
-                    <canvas id="carouselCanvas"></canvas>
+                <div class="carousel-overlay" onclick="event.target === this && closeCarousel()" role="dialog" aria-label="Brewing workflow" aria-modal="true">
+                    <canvas id="carouselCanvas" aria-hidden="true"></canvas>
                     <div class="carousel-container">
-                        <div class="carousel-progress">\${progress}</div>
-                        <div class="carousel-step">
+                        <div class="carousel-progress">
+                            \${progress}
+                            <span class="sr-only">Step \${STATE.carouselStep + 1} of 7</span>
+                        </div>
+                        <div class="carousel-step" aria-live="polite">
                             <h2>\${step.title}</h2>
                             <p>\${step.description}</p>
                         </div>
                         <div class="carousel-controls">
                             <button class="carousel-btn prev" onclick="prevStep()" \${STATE.carouselStep === 0 ? 'disabled' : ''}>← Back</button>
-                            <button class="carousel-btn next" onclick="nextStep()" \${STATE.carouselStep === 6 ? 'disabled' : ''}>Next →</button>
+                            <button class="carousel-btn next" onclick="nextStep()">\${STATE.carouselStep === 6 ? 'Start ☕' : 'Next →'}</button>
                         </div>
                     </div>
                 </div>
@@ -1350,20 +1455,20 @@ export default function Page() {
         function renderBrewingScreen() {
             const elapsed = Math.floor((Date.now() - (STATE.brewingStartTime || Date.now())) / 1000);
             return \`
-                <div class="brewing-container">
-                    <canvas id="brewingCanvas" width="400" height="400"></canvas>
-                    <div class="brewing-info">
+                <div class="brewing-container" role="status" aria-label="Brewing in progress">
+                    <canvas id="brewingCanvas" width="400" height="400" aria-hidden="true"></canvas>
+                    <div class="brewing-info" aria-live="polite">
                         <div class="brewing-stat">
-                            <div class="brewing-stat-value">\${STATE.currentPressure.toFixed(1)}</div>
-                            <div class="brewing-stat-label">Bar</div>
+                            <div class="brewing-stat-value" aria-label="Pressure">\${STATE.currentPressure.toFixed(1)}</div>
+                            <div class="brewing-stat-label" aria-hidden="true">Bar</div>
                         </div>
                         <div class="brewing-stat">
-                            <div class="brewing-stat-value">\${STATE.currentFlow.toFixed(1)}</div>
-                            <div class="brewing-stat-label">ml/s</div>
+                            <div class="brewing-stat-value" aria-label="Flow rate">\${STATE.currentFlow.toFixed(1)}</div>
+                            <div class="brewing-stat-label" aria-hidden="true">ml/s</div>
                         </div>
                         <div class="brewing-stat">
-                            <div class="brewing-stat-value">\${elapsed}</div>
-                            <div class="brewing-stat-label">Sec</div>
+                            <div class="brewing-stat-value" aria-label="Elapsed time">\${elapsed}</div>
+                            <div class="brewing-stat-label" aria-hidden="true">Sec</div>
                         </div>
                     </div>
                 </div>
@@ -1380,10 +1485,10 @@ export default function Page() {
             }
 
             return \`
-                <div class="sleep-screen" onclick="wakeUp()">
-                    <canvas id="sleepCanvas" width="800" height="800"></canvas>
+                <div class="sleep-screen" onclick="wakeUp()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();wakeUp();}" role="button" tabindex="0" aria-label="Machine sleeping. Press to wake.">
+                    <canvas id="sleepCanvas" width="800" height="800" aria-hidden="true"></canvas>
                     <div class="sleep-content">
-                        <div class="sleep-clock">\${timeString}</div>
+                        <div class="sleep-clock" aria-live="off" aria-label="Current time">\${timeString}</div>
                         <div class="sleep-status">Touch to wake</div>
                     </div>
                 </div>
@@ -1392,7 +1497,8 @@ export default function Page() {
 
         function renderDoneScreen() {
             return \`
-                <div class="main-screen">
+                <main class="main-screen" aria-label="Brewing complete">
+                    <canvas id="ambientCanvas" aria-hidden="true"></canvas>
                     <div class="center-content">
                         <h1 style="font-size: 2.5rem; margin-bottom: 1rem;">☕ Enjoy!</h1>
                         <p style="opacity: 0.7; margin-bottom: 2rem;">Your espresso is ready.</p>
@@ -1401,7 +1507,7 @@ export default function Page() {
                             <button class="action-btn sleep" onclick="sleep()">Sleep</button>
                         </div>
                     </div>
-                </div>
+                </main>
             \`;
         }
 
@@ -1411,7 +1517,7 @@ export default function Page() {
             ).join('');
 
             return \`
-                <div class="settings-overlay">
+                <div class="settings-overlay" role="dialog" aria-label="Settings" aria-modal="true">
                     <div class="settings-dialog">
                         <h2 class="settings-title">Settings</h2>
                         
@@ -1491,43 +1597,56 @@ export default function Page() {
                 setTimeout(() => renderAmbientAnimation('ambientCanvas'), 50);
             }
 
-            if (STATE.screen === 'brewing') {
+            if (STATE.screen === 'brewing' && !brewingAnimationFrame) {
                 setTimeout(renderBrewingVisualization, 50);
             }
         }
 
         // ============ CANVAS VISUALIZATIONS ============
-        // Simplified brewing animation similar to sleep animation
+        // Brewing animation — same style as sleep, with particle speed
+        // driven by flow (blue particles) and pressure (green particles)
         let brewingParticles = null;
         let smoothedPressure = 0;
         let smoothedFlow = 0;
-        
+        let brewingAnimationFrame = null;
+
         function initBrewingParticles() {
-            const count = 30;
-            brewingParticles = Array.from({ length: count }, (_, i) => ({
-                offsetX: Math.random() * 400 - 200,
-                offsetY: Math.random() * 400 - 200,
-                speedX: 0.1 + Math.random() * 0.3,
-                speedY: 0.15 + Math.random() * 0.25,
-                phaseX: Math.random() * Math.PI * 2,
-                phaseY: Math.random() * Math.PI * 2,
-                baseSize: 25 + Math.random() * 50,
-                pulseSpeed: 0.2 + Math.random() * 0.4,
-                pulsePhase: Math.random() * Math.PI * 2,
-                pulseAmount: 0.3 + Math.random() * 0.5,
-                hue: i % 3 === 0 ? 200 : (i % 3 === 1 ? 180 : 220),
-                saturation: 60 + Math.random() * 30,
-                baseOpacity: 0.1 + Math.random() * 0.15,
-                opacitySpeed: 0.15 + Math.random() * 0.25,
-                opacityPhase: Math.random() * Math.PI * 2,
-            }));
+            const count = 40;
+            brewingParticles = Array.from({ length: count }, (_, i) => {
+                // First half: blue/flow particles, second half: green/pressure particles
+                const isFlow = i < count / 2;
+                return {
+                    isFlow,
+                    offsetX: Math.random() * 400 - 200,
+                    offsetY: Math.random() * 400 - 200,
+                    baseSpeedX: 0.1 + Math.random() * 0.3,
+                    baseSpeedY: 0.15 + Math.random() * 0.25,
+                    phaseX: Math.random() * Math.PI * 2,
+                    phaseY: Math.random() * Math.PI * 2,
+                    baseSize: 20 + Math.random() * 60,
+                    pulseSpeed: 0.2 + Math.random() * 0.4,
+                    pulsePhase: Math.random() * Math.PI * 2,
+                    pulseAmount: 0.3 + Math.random() * 0.5,
+                    hue: isFlow
+                        ? (i % 3 === 0 ? 210 : (i % 3 === 1 ? 200 : 220))  // blue range
+                        : (i % 3 === 0 ? 140 : (i % 3 === 1 ? 150 : 160)), // green range
+                    saturation: 50 + Math.random() * 30,
+                    baseOpacity: 0.05 + Math.random() * 0.12,
+                    opacitySpeed: 0.15 + Math.random() * 0.25,
+                    opacityPhase: Math.random() * Math.PI * 2,
+                    trailLength: 3 + Math.floor(Math.random() * 5),
+                    trail: []
+                };
+            });
         }
-        
+
         function renderBrewingVisualization() {
             const canvas = document.getElementById('brewingCanvas');
-            if (!canvas) return;
+            if (!canvas || reducedMotionEnabled()) {
+                brewingAnimationFrame = null;
+                return;
+            }
 
-            // Resize canvas to match window size
             if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
@@ -1536,12 +1655,12 @@ export default function Page() {
             if (!brewingParticles) initBrewingParticles();
 
             const ctx = canvas.getContext('2d');
+            const time = Date.now() / 1000;
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
-            const time = Date.now() / 1000;
 
             // Fade effect for trails
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.2)';
+            ctx.fillStyle = 'rgba(10, 14, 39, 0.15)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Smooth data values
@@ -1549,43 +1668,98 @@ export default function Page() {
             smoothedPressure += (STATE.currentPressure - smoothedPressure) * smoothingFactor;
             smoothedFlow += (STATE.currentFlow - smoothedFlow) * smoothingFactor;
 
-            // Subtle data-driven intensity
-            const intensity = 1 + (smoothedPressure + smoothedFlow) * 0.02;
+            // Speed multipliers: base 1x at 0, up to ~4x at high values
+            const flowSpeed = 1 + smoothedFlow * 0.5;
+            const pressureSpeed = 1 + smoothedPressure * 0.3;
 
-            // Draw particles
-            brewingParticles.forEach((p) => {
-                const x = centerX + p.offsetX + Math.sin(time * p.speedX * intensity + p.phaseX) * 160;
-                const y = centerY + p.offsetY + Math.cos(time * p.speedY * intensity + p.phaseY) * 160;
-                
+            // Draw connection lines between nearby particles
+            ctx.lineWidth = 1;
+            for (let i = 0; i < brewingParticles.length; i++) {
+                for (let j = i + 1; j < brewingParticles.length; j++) {
+                    const p1 = brewingParticles[i];
+                    const p2 = brewingParticles[j];
+                    const s1 = p1.isFlow ? flowSpeed : pressureSpeed;
+                    const s2 = p2.isFlow ? flowSpeed : pressureSpeed;
+
+                    const x1 = centerX + p1.offsetX + Math.sin(time * p1.baseSpeedX * s1 + p1.phaseX) * 180;
+                    const y1 = centerY + p1.offsetY + Math.cos(time * p1.baseSpeedY * s1 + p1.phaseY) * 180;
+                    const x2 = centerX + p2.offsetX + Math.sin(time * p2.baseSpeedX * s2 + p2.phaseX) * 180;
+                    const y2 = centerY + p2.offsetY + Math.cos(time * p2.baseSpeedY * s2 + p2.phaseY) * 180;
+
+                    const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+                    if (dist < 150) {
+                        const opacity = 0.3 * (1 - dist / 150);
+                        const lineHue = (p1.isFlow && p2.isFlow) ? 210 : ((!p1.isFlow && !p2.isFlow) ? 150 : 180);
+                        ctx.strokeStyle = \`hsla(\${lineHue}, 60%, 50%, \${opacity * 0.15})\`;
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Draw each particle with trails
+            brewingParticles.forEach((p, i) => {
+                const speed = p.isFlow ? flowSpeed : pressureSpeed;
+                const x = centerX + p.offsetX + Math.sin(time * p.baseSpeedX * speed + p.phaseX) * 180;
+                const y = centerY + p.offsetY + Math.cos(time * p.baseSpeedY * speed + p.phaseY) * 180;
+
+                // Update trail
+                p.trail.push({ x, y });
+                if (p.trail.length > p.trailLength) p.trail.shift();
+
+                // Draw trail
+                p.trail.forEach((pos, idx) => {
+                    const trailOpacity = (idx / p.trail.length) * p.baseOpacity * 0.3;
+                    const trailSize = p.baseSize * 0.3 * (idx / p.trail.length);
+
+                    ctx.fillStyle = \`hsla(\${p.hue}, \${p.saturation}%, 60%, \${trailOpacity})\`;
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, trailSize, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Dynamic properties
                 const pulse = Math.sin(time * p.pulseSpeed + p.pulsePhase) * p.pulseAmount;
-                const size = p.baseSize * (1 + pulse) * intensity;
+                const size = p.baseSize * (1 + pulse);
                 const opacityWave = Math.sin(time * p.opacitySpeed + p.opacityPhase) * 0.5 + 0.5;
                 const opacity = p.baseOpacity * opacityWave;
-                
+
+                // Main particle with gradient
                 const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
                 gradient.addColorStop(0, \`hsla(\${p.hue}, \${p.saturation}%, 70%, \${opacity})\`);
                 gradient.addColorStop(0.5, \`hsla(\${p.hue}, \${p.saturation}%, 60%, \${opacity * 0.5})\`);
                 gradient.addColorStop(1, \`hsla(\${p.hue}, \${p.saturation}%, 50%, 0)\`);
-                
+
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
                 ctx.arc(x, y, size, 0, Math.PI * 2);
                 ctx.fill();
+
+                // Occasional sparkle
+                if (Math.sin(time * 2 + i) > 0.95) {
+                    ctx.fillStyle = \`rgba(255, 255, 255, \${0.3 + Math.random() * 0.3})\`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2 + Math.random() * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             });
-            
+
             // Breathing overlay
             const breathe = Math.sin(time * 0.4) * 0.5 + 0.5;
             const overlayGradient = ctx.createRadialGradient(
                 centerX, centerY, 0,
                 centerX, centerY, Math.max(canvas.width, canvas.height) / 2
             );
-            overlayGradient.addColorStop(0, \`rgba(59, 130, 246, \${breathe * intensity * 0.04})\`);
-            overlayGradient.addColorStop(0.5, \`rgba(139, 92, 246, \${breathe * intensity * 0.02})\`);
+            overlayGradient.addColorStop(0, \`rgba(59, 130, 246, \${breathe * 0.03})\`);
+            overlayGradient.addColorStop(0.5, \`rgba(139, 92, 246, \${breathe * 0.02})\`);
             overlayGradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
             ctx.fillStyle = overlayGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            requestAnimationFrame(renderBrewingVisualization);
+            brewingAnimationFrame = requestAnimationFrame(renderBrewingVisualization);
         }
 
         // Ambient background animation for main screen and carousel
@@ -1615,7 +1789,7 @@ export default function Page() {
 
         function renderAmbientAnimation(canvasId) {
             const canvas = document.getElementById(canvasId);
-            if (!canvas) {
+            if (!canvas || reducedMotionEnabled()) {
                 ambientAnimationFrame = null;
                 return;
             }
@@ -1740,7 +1914,7 @@ export default function Page() {
 
         function renderSleepAnimation() {
             const canvas = document.getElementById('sleepCanvas');
-            if (!canvas) return;
+            if (!canvas || reducedMotionEnabled()) return;
 
             // Resize canvas to match window size
             if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
@@ -1846,6 +2020,23 @@ export default function Page() {
             requestAnimationFrame(renderSleepAnimation);
         }
 
+        // ============ REDUCED MOTION ============
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        function reducedMotionEnabled() {
+            return prefersReducedMotion.matches;
+        }
+
+        // ============ KEYBOARD HANDLERS ============
+        function handleGlobalKeydown(e) {
+            if (e.key === 'Escape') {
+                if (STATE.screen === 'settings') {
+                    closeSettings();
+                } else if (STATE.screen === 'carousel') {
+                    closeCarousel();
+                }
+            }
+        }
+
         // ============ INITIALIZATION ============
         async function init() {
             console.log('[v0] Baseline starting...');
@@ -1853,6 +2044,9 @@ export default function Page() {
             connectMachineSnapshotWebSocket();
             connectWaterLevelWebSocket();
             connectDisplayWebSocket();
+
+            // Keyboard navigation
+            document.addEventListener('keydown', handleGlobalKeydown);
 
             // Presence heartbeat on user interaction
             document.addEventListener('click', sendHeartbeat);
