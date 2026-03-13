@@ -11,6 +11,49 @@ export default function Page() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baseline</title>
     <style>
+        :root {
+            /* Background tones */
+            --bg-base: #0a0e27;
+            --bg-subtle: #0f1520;
+            --bg-surface: #1f2937;
+            --bg-surface-hover: #374151;
+            --bg-overlay: rgba(10, 14, 39, 0.95);
+            --bg-card: rgba(17, 24, 39, 0.7);
+
+            /* Text */
+            --text-primary: #e0e0e0;
+            --text-muted: #9ca3af;
+            --text-faint: #6b7280;
+
+            /* Accent — blue */
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-deep: #1e40af;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --accent-glow-strong: rgba(59, 130, 246, 0.6);
+            --accent-border: rgba(59, 130, 246, 0.3);
+            --accent-border-subtle: rgba(59, 130, 246, 0.2);
+            --accent-surface: rgba(59, 130, 246, 0.9);
+
+            /* Secondary button */
+            --btn-secondary: rgba(55, 65, 81, 0.7);
+            --btn-secondary-hover: rgba(75, 85, 99, 0.9);
+            --btn-secondary-border: rgba(75, 85, 99, 0.5);
+
+            /* Semantic */
+            --status-ready: #4ade80;
+            --status-ready-glow: rgba(74, 222, 128, 0.6);
+            --status-warming: #fbbf24;
+            --status-warming-glow: rgba(251, 191, 36, 0.6);
+            --status-error: #ef4444;
+            --status-error-glow: rgba(239, 68, 68, 0.6);
+            --status-neutral: #666;
+
+            /* Input */
+            --input-bg: #1f2937;
+            --input-border: #374151;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -19,8 +62,8 @@ export default function Page() {
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0a0e27;
-            color: #e0e0e0;
+            background: var(--bg-base);
+            color: var(--text-primary);
             overflow: hidden;
         }
 
@@ -80,24 +123,24 @@ export default function Page() {
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background: #666;
-            transition: all 0.3s ease;
+            background: var(--status-neutral);
+            transition: background 0.3s ease, box-shadow 0.3s ease;
             box-shadow: 0 0 8px rgba(102, 102, 102, 0.3);
         }
 
         .status-dot.connected.ready {
-            background: #4ade80;
-            box-shadow: 0 0 16px rgba(74, 222, 128, 0.6);
+            background: var(--status-ready);
+            box-shadow: 0 0 16px var(--status-ready-glow);
         }
 
         .status-dot.connected.not-ready {
-            background: #fbbf24;
-            box-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
+            background: var(--status-warming);
+            box-shadow: 0 0 16px var(--status-warming-glow);
         }
 
         .status-dot.disconnected {
-            background: #ef4444;
-            box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
+            background: var(--status-error);
+            box-shadow: 0 0 16px var(--status-error-glow);
             animation: pulse 2s infinite;
         }
 
@@ -109,7 +152,7 @@ export default function Page() {
         .status-text {
             text-align: center;
             font-size: 0.85rem;
-            opacity: 0.7;
+            color: var(--text-muted);
         }
 
         .center-content {
@@ -130,23 +173,21 @@ export default function Page() {
             font-weight: 500;
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(30, 64, 175, 0.9) 100%);
+            background: linear-gradient(135deg, var(--accent-surface) 0%, rgba(30, 64, 175, 0.9) 100%);
             color: white;
-            border: 1px solid rgba(59, 130, 246, 0.3);
+            border: 1px solid var(--accent-border);
             border-radius: 0.5rem;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4), 0 0 60px rgba(59, 130, 246, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, opacity 0.3s ease;
+            box-shadow: 0 8px 32px var(--accent-glow), 0 0 60px rgba(59, 130, 246, 0.2);
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
         }
 
         .coffee-button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.6), 0 0 80px rgba(59, 130, 246, 0.3);
-            background: linear-gradient(135deg, rgba(59, 130, 246, 1) 0%, rgba(30, 64, 175, 1) 100%);
+            box-shadow: 0 12px 40px var(--accent-glow-strong), 0 0 80px var(--accent-border);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
         }
 
         .coffee-button:active:not(:disabled) {
@@ -162,7 +203,7 @@ export default function Page() {
         .carousel-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(10, 14, 39, 0.95);
+            background: var(--bg-overlay);
             backdrop-filter: blur(4px);
             display: flex;
             align-items: center;
@@ -179,8 +220,8 @@ export default function Page() {
         }
 
         .carousel-container {
-            background: rgba(17, 24, 39, 0.7);
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            background: var(--bg-card);
+            border: 1px solid var(--accent-border-subtle);
             border-radius: 1rem;
             padding: 2rem;
             max-width: 500px;
@@ -203,12 +244,12 @@ export default function Page() {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #374151;
-            transition: all 0.3s ease;
+            background: var(--bg-surface-hover);
+            transition: background 0.3s ease, transform 0.3s ease;
         }
 
         .progress-dot.active {
-            background: #3b82f6;
+            background: var(--accent);
             transform: scale(1.3);
         }
 
@@ -229,15 +270,15 @@ export default function Page() {
 
         .carousel-step p {
             font-size: 1rem;
-            opacity: 0.8;
+            color: var(--text-muted);
             line-height: 1.6;
             margin-bottom: 1.5rem;
         }
 
         .carousel-step input {
-            background: #1f2937;
-            border: 1px solid #374151;
-            color: #e0e0e0;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-primary);
             padding: 0.75rem 1rem;
             border-radius: 0.375rem;
             margin-bottom: 1rem;
@@ -247,7 +288,7 @@ export default function Page() {
         }
 
         .carousel-step input:focus {
-            border-color: #3b82f6;
+            border-color: var(--accent);
         }
 
         .carousel-controls {
@@ -262,33 +303,29 @@ export default function Page() {
             border-radius: 0.375rem;
             font-size: 0.95rem;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.2s, box-shadow 0.2s, opacity 0.2s;
             font-weight: 500;
         }
 
         .carousel-btn.prev {
-            background: rgba(55, 65, 81, 0.7);
-            color: #e0e0e0;
-            border: 1px solid rgba(75, 85, 99, 0.5);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            background: var(--btn-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--btn-secondary-border);
         }
 
         .carousel-btn.prev:hover:not(:disabled) {
-            background: rgba(75, 85, 99, 0.9);
+            background: var(--btn-secondary-hover);
         }
 
         .carousel-btn.next {
-            background: rgba(59, 130, 246, 0.9);
+            background: var(--accent-surface);
             color: white;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--accent-border);
         }
 
         .carousel-btn.next:hover:not(:disabled) {
-            background: rgba(37, 99, 235, 1);
-            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+            background: var(--accent-hover);
+            box-shadow: 0 4px 16px var(--accent-glow);
         }
 
         .carousel-btn:disabled {
@@ -300,7 +337,7 @@ export default function Page() {
         .brewing-container {
             position: fixed;
             inset: 0;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-subtle) 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -334,12 +371,12 @@ export default function Page() {
         .brewing-stat-value {
             font-size: 1.8rem;
             font-weight: 600;
-            color: #4ade80;
+            color: var(--status-ready);
         }
 
         .brewing-stat-label {
             font-size: 0.8rem;
-            opacity: 0.6;
+            color: var(--text-faint);
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
@@ -348,7 +385,7 @@ export default function Page() {
         .sleep-screen {
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #0a0e27 0%, #0f1520 100%);
+            background: linear-gradient(135deg, var(--bg-base) 0%, var(--bg-subtle) 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -386,13 +423,13 @@ export default function Page() {
             font-size: 1.1rem;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            opacity: 0.6;
+            color: var(--text-faint);
             font-weight: 500;
         }
 
         .sleep-wake {
             padding: 1rem 2rem;
-            background: #3b82f6;
+            background: var(--accent);
             color: white;
             border: none;
             border-radius: 0.5rem;
@@ -401,11 +438,11 @@ export default function Page() {
             letter-spacing: 0.05em;
             text-transform: uppercase;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background 0.3s ease, transform 0.3s ease;
         }
 
         .sleep-wake:hover {
-            background: #2563eb;
+            background: var(--accent-hover);
             transform: translateY(-2px);
         }
 
@@ -413,7 +450,7 @@ export default function Page() {
         .settings-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(10, 14, 39, 0.95);
+            background: var(--bg-overlay);
             backdrop-filter: blur(4px);
             display: flex;
             align-items: center;
@@ -423,8 +460,8 @@ export default function Page() {
         }
 
         .settings-dialog {
-            background: rgba(17, 24, 39, 0.7);
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            background: var(--bg-card);
+            border: 1px solid var(--accent-border-subtle);
             border-radius: 1rem;
             padding: 2rem;
             max-width: 450px;
@@ -450,7 +487,7 @@ export default function Page() {
             display: block;
             font-size: 0.9rem;
             margin-bottom: 0.5rem;
-            opacity: 0.8;
+            color: var(--text-muted);
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.03em;
@@ -458,17 +495,26 @@ export default function Page() {
 
         .setting-input {
             width: 100%;
-            background: #1f2937;
-            border: 1px solid #374151;
-            color: #e0e0e0;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-primary);
             padding: 0.75rem 1rem;
             border-radius: 0.375rem;
             font-size: 1rem;
             transition: border-color 0.2s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        select.setting-input {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            padding-right: 2.5rem;
         }
 
         .setting-input:focus {
-            border-color: #3b82f6;
+            border-color: var(--accent);
         }
 
         .settings-close {
@@ -477,15 +523,15 @@ export default function Page() {
             right: 1rem;
             background: none;
             border: none;
-            color: #e0e0e0;
+            color: var(--text-primary);
             font-size: 1.5rem;
             cursor: pointer;
-            opacity: 0.6;
-            transition: opacity 0.2s;
+            color: var(--text-faint);
+            transition: color 0.2s;
         }
 
         .settings-close:hover {
-            opacity: 1;
+            color: var(--text-primary);
         }
 
         .settings-buttons {
@@ -501,34 +547,30 @@ export default function Page() {
             border-radius: 0.375rem;
             font-size: 0.95rem;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.2s, box-shadow 0.2s, opacity 0.2s;
             font-weight: 500;
         }
 
         .settings-button.save {
-            background: rgba(59, 130, 246, 0.9);
+            background: var(--accent-surface);
             color: white;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+            border: 1px solid var(--accent-border);
+            box-shadow: 0 4px 16px var(--accent-glow);
         }
 
         .settings-button.save:hover {
-            background: rgba(37, 99, 235, 1);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+            background: var(--accent-hover);
+            box-shadow: 0 6px 20px var(--accent-glow-strong);
         }
 
         .settings-button.cancel {
-            background: rgba(55, 65, 81, 0.7);
-            color: #e0e0e0;
-            border: 1px solid rgba(75, 85, 99, 0.5);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            background: var(--btn-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--btn-secondary-border);
         }
 
         .settings-button.cancel:hover {
-            background: rgba(75, 85, 99, 0.9);
+            background: var(--btn-secondary-hover);
         }
 
         /* TOOLBAR */
@@ -544,20 +586,20 @@ export default function Page() {
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background: #1f2937;
-            border: 1px solid #374151;
-            color: #e0e0e0;
+            background: var(--bg-surface);
+            border: 1px solid var(--input-border);
+            color: var(--text-primary);
             font-size: 1.1rem;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.2s, border-color 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
         .toolbar-button:hover {
-            background: #374151;
-            border-color: #4b5563;
+            background: var(--bg-surface-hover);
+            border-color: var(--btn-secondary-border);
         }
 
         /* POWER BUTTON */
@@ -568,20 +610,20 @@ export default function Page() {
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background: #1f2937;
-            border: 2px solid #ef4444;
-            color: #ef4444;
+            background: var(--bg-surface);
+            border: 2px solid var(--status-error);
+            color: var(--status-error);
             font-size: 1.2rem;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
         .power-button:hover {
-            background: #374151;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+            background: var(--bg-surface-hover);
+            box-shadow: 0 0 12px var(--status-error-glow);
         }
 
         .power-button:active {
@@ -632,34 +674,30 @@ export default function Page() {
             letter-spacing: 0.05em;
             text-transform: uppercase;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .action-btn.again {
-            background: rgba(59, 130, 246, 0.9);
+            background: var(--accent-surface);
             color: white;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+            border: 1px solid var(--accent-border);
+            box-shadow: 0 4px 20px var(--accent-glow);
         }
 
         .action-btn.again:hover {
-            background: rgba(37, 99, 235, 1);
+            background: var(--accent-hover);
             transform: translateY(-2px);
-            box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+            box-shadow: 0 6px 24px var(--accent-glow-strong);
         }
 
         .action-btn.sleep {
-            background: rgba(31, 41, 55, 0.7);
-            color: #e0e0e0;
-            border: 1px solid rgba(75, 85, 99, 0.5);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: var(--btn-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--btn-secondary-border);
         }
 
         .action-btn.sleep:hover {
-            background: rgba(55, 65, 81, 0.9);
+            background: var(--btn-secondary-hover);
             border-color: rgba(75, 85, 99, 0.8);
         }
 
@@ -679,19 +717,79 @@ export default function Page() {
 
         /* FOCUS STYLES */
         :focus-visible {
-            outline: 2px solid #3b82f6;
+            outline: 2px solid var(--accent);
             outline-offset: 2px;
         }
 
         .coffee-button:focus-visible {
-            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4), 0 0 0 3px rgba(59, 130, 246, 0.5);
+            box-shadow: 0 8px 32px var(--accent-glow), 0 0 0 3px var(--accent-glow-strong);
         }
 
         .carousel-step input:focus-visible,
         .setting-input:focus-visible {
-            outline: 2px solid #3b82f6;
+            outline: 2px solid var(--accent);
             outline-offset: -1px;
-            border-color: #3b82f6;
+            border-color: var(--accent);
+        }
+
+        /* TEMPERATURE & WATER DISPLAY */
+        .temperature-display {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+
+        .water-level-display {
+            font-size: 0.85rem;
+            color: var(--text-faint);
+            margin-top: 0.25rem;
+        }
+
+        /* DONE SCREEN */
+        .done-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .done-subtitle {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        /* WEIGHT DISPLAY */
+        .weight-display {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        .tare-btn {
+            margin-top: 0.5rem;
+            padding: 0.4rem 1.2rem;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid var(--accent-glow);
+            color: var(--accent);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .tare-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* MACHINE INFO */
+        .setting-group-divider {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .machine-info-text {
+            font-size: 0.85rem;
+            color: var(--text-faint);
+            line-height: 1.6;
         }
 
         /* REDUCED MOTION */
@@ -1114,7 +1212,7 @@ export default function Page() {
             const el = document.querySelector('.water-level-display');
             if (el) {
                 el.textContent = STATE.waterLevelLiters.toFixed(1) + 'L';
-                el.style.color = STATE.waterLevelLiters < 0.3 ? '#ef4444' : 'rgba(224, 224, 224, 0.6)';
+                el.style.color = STATE.waterLevelLiters < 0.3 ? 'var(--status-error)' : '';
             }
         }
 
@@ -1217,7 +1315,7 @@ export default function Page() {
             const weightText = document.querySelector('.weight-display');
             if (weightText) {
                 weightText.textContent = \`Current: \${STATE.currentWeight.toFixed(1)}g / Target: \${CONFIG.coffeeWeight}g\`;
-                weightText.style.color = STATE.targetWeightReached ? '#4ade80' : '#e0e0e0';
+                weightText.style.color = STATE.targetWeightReached ? 'var(--status-ready)' : '';
             }
         }
 
@@ -1249,8 +1347,8 @@ export default function Page() {
                 const progress = Array.from({ length: 7 }, (_, i) => \`<div class="progress-dot \${i === STATE.carouselStep ? 'active' : ''}" aria-hidden="true"></div>\`).join('');
 
                 const weightDisplay = step.showWeight
-                    ? \`<p class="weight-display" style="font-size: 1.2rem; font-weight: 600; margin-top: 1rem;" aria-live="polite">\${STATE.currentWeight.toFixed(1)}g / \${CONFIG.coffeeWeight}g</p>
-                       <button onclick="tareScale()" style="margin-top: 0.5rem; padding: 0.4rem 1.2rem; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; border-radius: 0.5rem; cursor: pointer; font-size: 0.85rem;" \${!STATE.scaleConnected ? 'disabled' : ''}>Tare Scale</button>\`
+                    ? \`<p class="weight-display" aria-live="polite">\${STATE.currentWeight.toFixed(1)}g / \${CONFIG.coffeeWeight}g</p>
+                       <button class="tare-btn" onclick="tareScale()" \${!STATE.scaleConnected ? 'disabled' : ''}>Tare Scale</button>\`
                     : '';
 
                 carousel.innerHTML = \`
@@ -1260,7 +1358,7 @@ export default function Page() {
                     </div>
                     <div class="carousel-step" aria-live="polite">
                         <h2>\${step.title}</h2>
-                        <p style="color: \${STATE.carouselStep === 0 && STATE.scaleConnected ? '#4ade80' : 'inherit'}">\${step.description}</p>
+                        <p style="color: \${STATE.carouselStep === 0 && STATE.scaleConnected ? 'var(--status-ready)' : 'inherit'}">\${step.description}</p>
                         \${weightDisplay}
                     </div>
                     <div class="carousel-controls">
@@ -1371,8 +1469,8 @@ export default function Page() {
                             <span>\${status.text}</span>
                         </div>
                         <div class="status-text">\${STATE.machineState}</div>
-                        <div class="status-text temperature-display" style="font-size: 1.5rem; font-weight: 600; margin-top: 0.25rem;" aria-label="Group temperature">\${STATE.currentTemperature > 0 ? STATE.currentTemperature.toFixed(1) + '\u00B0C' : ''}</div>
-                        <div class="water-level-display" style="font-size: 0.85rem; opacity: 0.6; margin-top: 0.25rem;" aria-label="Water level">\${STATE.waterLevelLiters.toFixed(1)}L</div>
+                        <div class="temperature-display" aria-label="Group temperature">\${STATE.currentTemperature > 0 ? STATE.currentTemperature.toFixed(1) + '\u00B0C' : ''}</div>
+                        <div class="water-level-display" aria-label="Water level">\${STATE.waterLevelLiters.toFixed(1)}L</div>
                     </div>
 
                     <div class="center-content">
@@ -1500,8 +1598,8 @@ export default function Page() {
                 <main class="main-screen" aria-label="Brewing complete">
                     <canvas id="ambientCanvas" aria-hidden="true"></canvas>
                     <div class="center-content">
-                        <h1 style="font-size: 2.5rem; margin-bottom: 1rem;">☕ Enjoy!</h1>
-                        <p style="opacity: 0.7; margin-bottom: 2rem;">Your espresso is ready.</p>
+                        <h1 class="done-title">☕ Enjoy!</h1>
+                        <p class="done-subtitle">Your espresso is ready.</p>
                         <div class="action-buttons">
                             <button class="action-btn again" onclick="makeAnother()">Make Another</button>
                             <button class="action-btn sleep" onclick="sleep()">Sleep</button>
@@ -1553,9 +1651,9 @@ export default function Page() {
                         </div>
 
                         \${STATE.machineInfo ? \`
-                        <div class="setting-group" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: 0.5rem;">
-                            <label class="setting-label" style="opacity: 0.5;">Machine Info</label>
-                            <div style="font-size: 0.85rem; opacity: 0.5; line-height: 1.6;">
+                        <div class="setting-group setting-group-divider">
+                            <label class="setting-label">Machine Info</label>
+                            <div class="machine-info-text">
                                 \${STATE.machineInfo.model ? 'Model: ' + STATE.machineInfo.model + '<br>' : ''}
                                 \${STATE.machineInfo.serialNumber ? 'Serial: ' + STATE.machineInfo.serialNumber + '<br>' : ''}
                                 \${STATE.machineInfo.version ? 'Firmware: ' + STATE.machineInfo.version : ''}
