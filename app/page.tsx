@@ -1150,6 +1150,7 @@ export default function Page() {
                     // Auto-transition to brewing visualization
                     if (STATE.machineState === 'espresso' && STATE.screen === 'carousel') {
                         STATE.screen = 'brewing';
+                        STATE.brewingStartTime = Date.now();
                         render();
                     }
 
