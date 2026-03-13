@@ -1323,24 +1323,24 @@ export default function Page() {
             const carousel = document.querySelector('.carousel-container');
             if (carousel) {
                 const steps = [
-                    { 
-                        title: 'Turn On Scale', 
-                        description: STATE.scaleConnected 
-                            ? '✓ Scale connected and ready!' 
-                            : 'Connecting to scale...',
-                        hasInput: false 
+                    {
+                        title: 'Turn On Scale',
+                        description: STATE.scaleConnected
+                            ? '✓ Scale connected'
+                            : 'Looking for your scale...',
+                        hasInput: false
                     },
-                    { 
-                        title: 'Weigh Coffee', 
-                        description: \`Place \${CONFIG.coffeeWeight}g of coffee beans on the scale.\`,
+                    {
+                        title: 'Weigh Coffee',
+                        description: \`Place \${CONFIG.coffeeWeight}g of beans on the scale.\`,
                         hasInput: false,
                         showWeight: true
                     },
-                    { title: 'Set Grinder', description: \`Set your grinder to setting \${CONFIG.grinderSetting}.\`, hasInput: false },
-                    { title: 'Grind', description: 'Grind the coffee until all beans are processed.', hasInput: false },
-                    { title: 'Tamp', description: 'Pour the grounds into the portafilter and tamp firmly and evenly.', hasInput: false },
-                    { title: 'Insert Portafilter', description: 'Insert and lock the portafilter into the group head, then press the coffee button.', hasInput: false },
-                    { title: 'Cup Ready?', description: 'Place your cup underneath the group head to catch the espresso.', hasInput: false }
+                    { title: 'Set Grinder', description: \`Dial your grinder to \${CONFIG.grinderSetting}.\`, hasInput: false },
+                    { title: 'Grind', description: 'Grind until all beans are processed.', hasInput: false },
+                    { title: 'Tamp', description: 'Fill the portafilter and tamp evenly.', hasInput: false },
+                    { title: 'Lock In', description: 'Insert the portafilter into the group head.', hasInput: false },
+                    { title: 'Place Cup', description: 'Position your cup under the group head.', hasInput: false }
                 ];
 
                 const step = steps[STATE.carouselStep];
@@ -1363,7 +1363,7 @@ export default function Page() {
                     </div>
                     <div class="carousel-controls">
                         <button class="carousel-btn prev" onclick="prevStep()" \${STATE.carouselStep === 0 ? 'disabled' : ''}>← Back</button>
-                        <button class="carousel-btn next" onclick="nextStep()">\${STATE.carouselStep === 6 ? 'Start ☕' : 'Next →'}</button>
+                        <button class="carousel-btn next" onclick="nextStep()">\${STATE.carouselStep === 6 ? 'Brew ☕' : 'Next →'}</button>
                     </div>
                 \`;
             }
@@ -1442,18 +1442,18 @@ export default function Page() {
         // ============ RENDERING ============
         function getStatusDisplay() {
             const s = STATE.machineState;
-            if (s === 'disconnected') return { class: 'disconnected', text: 'Not Connected' };
-            if (s === 'error') return { class: 'disconnected', text: 'Error' };
-            if (s === 'needsWater') return { class: 'disconnected', text: 'Needs Water' };
-            if (s === 'idle') return { class: 'connected ready', text: 'Ready to Brew' };
-            if (s === 'sleeping') return { class: 'connected not-ready', text: 'Sleeping' };
-            if (s === 'heating' || s === 'preheating' || s === 'booting') return { class: 'connected not-ready', text: 'Warming Up' };
-            if (s === 'espresso') return { class: 'connected ready', text: 'Brewing' };
-            if (s === 'steam') return { class: 'connected ready', text: 'Steaming' };
-            if (s === 'hotWater') return { class: 'connected ready', text: 'Hot Water' };
-            if (s === 'flush' || s === 'steamRinse') return { class: 'connected not-ready', text: 'Flushing' };
-            if (s === 'cleaning' || s === 'descaling') return { class: 'connected not-ready', text: 'Cleaning' };
-            return { class: 'connected not-ready', text: s };
+            if (s === 'disconnected') return { class: 'disconnected', text: 'Not Connected', hint: 'Check that the machine is on' };
+            if (s === 'error') return { class: 'disconnected', text: 'Machine Error', hint: 'Try restarting the machine' };
+            if (s === 'needsWater') return { class: 'disconnected', text: 'Refill Water', hint: 'The water tank is empty' };
+            if (s === 'idle') return { class: 'connected ready', text: 'Ready to Brew', hint: '' };
+            if (s === 'sleeping') return { class: 'connected not-ready', text: 'Sleeping', hint: '' };
+            if (s === 'heating' || s === 'preheating' || s === 'booting') return { class: 'connected not-ready', text: 'Warming Up', hint: 'Almost ready...' };
+            if (s === 'espresso') return { class: 'connected ready', text: 'Brewing', hint: '' };
+            if (s === 'steam') return { class: 'connected ready', text: 'Steaming', hint: '' };
+            if (s === 'hotWater') return { class: 'connected ready', text: 'Hot Water', hint: '' };
+            if (s === 'flush' || s === 'steamRinse') return { class: 'connected not-ready', text: 'Flushing', hint: '' };
+            if (s === 'cleaning' || s === 'descaling') return { class: 'connected not-ready', text: 'Cleaning', hint: '' };
+            return { class: 'connected not-ready', text: s, hint: '' };
         }
 
         function renderMainScreen() {
@@ -1468,7 +1468,7 @@ export default function Page() {
                             <div class="status-dot \${status.class}" aria-hidden="true"></div>
                             <span>\${status.text}</span>
                         </div>
-                        <div class="status-text">\${STATE.machineState}</div>
+                        \${status.hint ? \`<div class="status-text">\${status.hint}</div>\` : ''}
                         <div class="temperature-display" aria-label="Group temperature">\${STATE.currentTemperature > 0 ? STATE.currentTemperature.toFixed(1) + '\u00B0C' : ''}</div>
                         <div class="water-level-display" aria-label="Water level">\${STATE.waterLevelLiters.toFixed(1)}L</div>
                     </div>
@@ -1491,37 +1491,37 @@ export default function Page() {
             const steps = [
                 {
                     title: 'Turn On Scale',
-                    description: 'Make sure your scale is turned on and connected to the system.',
+                    description: 'Make sure your scale is powered on.',
                     hasInput: false
                 },
                 {
                     title: 'Weigh Coffee',
-                    description: \`Weigh \${CONFIG.coffeeWeight}g of coffee beans and place them in the grinder.\`,
+                    description: \`Place \${CONFIG.coffeeWeight}g of beans on the scale.\`,
                     hasInput: false
                 },
                 {
                     title: 'Set Grinder',
-                    description: \`Set your grinder to setting \${CONFIG.grinderSetting}.\`,
+                    description: \`Dial your grinder to \${CONFIG.grinderSetting}.\`,
                     hasInput: false
                 },
                 {
                     title: 'Grind',
-                    description: 'Grind the coffee until all beans are processed.',
+                    description: 'Grind until all beans are processed.',
                     hasInput: false
                 },
                 {
                     title: 'Tamp',
-                    description: 'Pour the grounds into the portafilter and tamp firmly and evenly.',
+                    description: 'Fill the portafilter and tamp evenly.',
                     hasInput: false
                 },
                 {
-                    title: 'Insert Portafilter',
-                    description: 'Insert and lock the portafilter into the group head, then press the coffee button.',
+                    title: 'Lock In',
+                    description: 'Insert the portafilter into the group head.',
                     hasInput: false
                 },
                 {
-                    title: 'Cup Ready?',
-                    description: 'Place your cup underneath the group head to catch the espresso.',
+                    title: 'Place Cup',
+                    description: 'Position your cup under the group head.',
                     hasInput: false
                 }
             ];
@@ -1543,7 +1543,7 @@ export default function Page() {
                         </div>
                         <div class="carousel-controls">
                             <button class="carousel-btn prev" onclick="prevStep()" \${STATE.carouselStep === 0 ? 'disabled' : ''}>← Back</button>
-                            <button class="carousel-btn next" onclick="nextStep()">\${STATE.carouselStep === 6 ? 'Start ☕' : 'Next →'}</button>
+                            <button class="carousel-btn next" onclick="nextStep()">\${STATE.carouselStep === 6 ? 'Brew ☕' : 'Next →'}</button>
                         </div>
                     </div>
                 </div>
@@ -1583,11 +1583,11 @@ export default function Page() {
             }
 
             return \`
-                <div class="sleep-screen" onclick="wakeUp()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();wakeUp();}" role="button" tabindex="0" aria-label="Machine sleeping. Press to wake.">
+                <div class="sleep-screen" onclick="wakeUp()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();wakeUp();}" role="button" tabindex="0" aria-label="Machine sleeping. Tap or press any key to wake.">
                     <canvas id="sleepCanvas" width="800" height="800" aria-hidden="true"></canvas>
                     <div class="sleep-content">
                         <div class="sleep-clock" aria-live="off" aria-label="Current time">\${timeString}</div>
-                        <div class="sleep-status">Touch to wake</div>
+                        <div class="sleep-status">Tap to wake</div>
                     </div>
                 </div>
             \`;
@@ -1601,8 +1601,8 @@ export default function Page() {
                         <h1 class="done-title">☕ Enjoy!</h1>
                         <p class="done-subtitle">Your espresso is ready.</p>
                         <div class="action-buttons">
-                            <button class="action-btn again" onclick="makeAnother()">Make Another</button>
-                            <button class="action-btn sleep" onclick="sleep()">Sleep</button>
+                            <button class="action-btn again" onclick="makeAnother()">One More</button>
+                            <button class="action-btn sleep" onclick="sleep()">Done</button>
                         </div>
                     </div>
                 </main>
@@ -1620,33 +1620,33 @@ export default function Page() {
                         <h2 class="settings-title">Settings</h2>
                         
                         <div class="setting-group">
-                            <label class="setting-label" for="settingServerUrl">Server URL</label>
-                            <input type="text" id="settingServerUrl" class="setting-input" value="\${CONFIG.apiUrl}" />
+                            <label class="setting-label" for="settingServerUrl">Bridge Address</label>
+                            <input type="text" id="settingServerUrl" class="setting-input" value="\${CONFIG.apiUrl}" placeholder="http://192.168.1.x:8080" />
                         </div>
 
                         <div class="setting-group">
-                            <label class="setting-label" for="settingProfile">Machine Profile</label>
+                            <label class="setting-label" for="settingProfile">Brewing Profile</label>
                             <select id="settingProfile" class="setting-input">
-                                <option value="">Select a profile</option>
+                                \${profileOptions.length ? '' : '<option value="">No profiles found</option>'}
                                 \${profileOptions}
                             </select>
                         </div>
 
                         <div class="setting-group">
-                            <label class="setting-label" for="settingCoffeeWeight">Coffee Weight (grams)</label>
-                            <input type="number" id="settingCoffeeWeight" class="setting-input" value="\${CONFIG.coffeeWeight}" />
+                            <label class="setting-label" for="settingCoffeeWeight">Dose (grams)</label>
+                            <input type="number" id="settingCoffeeWeight" class="setting-input" value="\${CONFIG.coffeeWeight}" min="1" max="50" />
                         </div>
 
                         <div class="setting-group">
                             <label class="setting-label" for="settingGrinder">Grinder Setting</label>
-                            <input type="number" id="settingGrinder" class="setting-input" value="\${CONFIG.grinderSetting}" />
+                            <input type="number" id="settingGrinder" class="setting-input" value="\${CONFIG.grinderSetting}" min="1" />
                         </div>
 
                         <div class="setting-group">
-                            <label class="setting-label" for="settingClockFormat">Clock Format</label>
+                            <label class="setting-label" for="settingClockFormat">Clock</label>
                             <select id="settingClockFormat" class="setting-input">
-                                <option value="24" \${CONFIG.clockFormat === '24' ? 'selected' : ''}>24 Hour</option>
-                                <option value="12" \${CONFIG.clockFormat === '12' ? 'selected' : ''}>12 Hour</option>
+                                <option value="24" \${CONFIG.clockFormat === '24' ? 'selected' : ''}>24-hour</option>
+                                <option value="12" \${CONFIG.clockFormat === '12' ? 'selected' : ''}>12-hour</option>
                             </select>
                         </div>
 
@@ -1663,7 +1663,7 @@ export default function Page() {
 
                         <div class="settings-buttons">
                             <button class="settings-button cancel" onclick="closeSettings()">Cancel</button>
-                            <button class="settings-button save" onclick="saveSettingsFromDialog()">Save</button>
+                            <button class="settings-button save" onclick="saveSettingsFromDialog()">Save Settings</button>
                         </div>
                     </div>
                 </div>
