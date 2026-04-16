@@ -920,6 +920,8 @@ export default function Page() {
             scaleConnected: false,
             scaleScanInterval: null,
             devicesWs: null,
+            ghcHintTimer: null,
+            showGhcHint: false,
             currentWeight: 0,
             targetWeightReached: false,
             machineInfo: null,
@@ -1255,6 +1257,7 @@ export default function Page() {
 
                     // Auto-transition to brewing visualization
                     if (STATE.machineState === 'espresso' && STATE.screen === 'carousel') {
+                        cancelGhcHint();
                         STATE.screen = 'brewing';
                         STATE.brewingStartTime = Date.now();
                         render();
@@ -1396,6 +1399,7 @@ export default function Page() {
         }
 
         function closeCarousel() {
+            cancelGhcHint();
             STATE.screen = 'main';
             STATE.carouselStep = 0;
             disconnectScaleWebSocket();
@@ -1403,10 +1407,34 @@ export default function Page() {
             render();
         }
 
+        function cancelGhcHint() {
+            clearTimeout(STATE.ghcHintTimer);
+            STATE.ghcHintTimer = null;
+            STATE.showGhcHint = false;
+        }
+
+        async function ghcStartOver() {
+            cancelGhcHint();
+            await apiCall('/api/v1/machine/state/idle', { method: 'PUT' });
+            STATE.carouselStep = 6;
+            renderCarouselOnly();
+        }
+
         async function nextStep() {
             if (STATE.carouselStep === 6) {
                 // Last step - start brewing
                 await startBrewing();
+
+                // If GHC present, show hint after 8s if not yet brewing
+                if (STATE.machineInfo?.GHC) {
+                    STATE.showGhcHint = false;
+                    STATE.ghcHintTimer = setTimeout(() => {
+                        if (STATE.screen === 'carousel') {
+                            STATE.showGhcHint = true;
+                            renderCarouselOnly();
+                        }
+                    }, 8000);
+                }
                 return;
             }
             if (STATE.carouselStep < 6) {
@@ -1491,9 +1519,12 @@ export default function Page() {
                         <h2>\${step.title}</h2>
                         <p style="color: \${STATE.carouselStep === 0 && STATE.scaleConnected ? 'var(--status-ready)' : 'inherit'}">\${step.description}</p>
                         \${weightDisplay}
+                        \${STATE.showGhcHint ? '<p style="color: var(--status-warming); margin-top: 1rem;">Press the glowing white area on the group head to start your shot. The machine is ready and waiting for your touch.</p>' : ''}
                     </div>
                     <div class="carousel-controls">
-                        <button class="carousel-btn prev" onclick="prevStep()" \${STATE.carouselStep === 0 ? 'disabled' : ''}>← Back</button>
+                        \${STATE.showGhcHint
+                            ? '<button class="carousel-btn prev" onclick="ghcStartOver()">Start Over</button>'
+                            : \`<button class="carousel-btn prev" onclick="prevStep()" \${STATE.carouselStep === 0 ? 'disabled' : ''}>← Back</button>\`}
                         <button class="carousel-btn next" onclick="nextStep()">\${STATE.carouselStep === 6 ? 'Brew ☕' : 'Next →'}</button>
                     </div>
                 \`;
@@ -1632,7 +1663,7 @@ export default function Page() {
                     </div>
 
                     <nav class="toolbar" aria-label="Controls">
-                        \${navigator.userAgent !== 'Streamline-Bridge' ? '<button class="toolbar-button" onclick="openPluginSettings()" aria-label="Plugin settings">🔌</button>' : ''}
+                        <button class="toolbar-button" onclick="openPluginSettings()" aria-label="Plugin settings">🔌</button>
                         <button class="toolbar-button" onclick="openSettings()" aria-label="Settings">⚙️</button>
                     </nav>
                 </main>
@@ -2373,7 +2404,7 @@ export default function Page() {
             document.addEventListener('click', onUserActivity);
             document.addEventListener('touchstart', onUserActivity);
 
-            await getMachineState();
+            await Promise.all([getMachineState(), getMachineInfo()]);
             await getProfiles();
             await loadSettingsFromKvStore();
             await pushWorkflowToMachine();
