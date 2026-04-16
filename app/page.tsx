@@ -927,7 +927,8 @@ export default function Page() {
             waterLevelMm: 0,
             waterLevelLiters: 0,
             waterLevelWs: null,
-            displayWs: null
+            displayWs: null,
+            displayState: null
         };
 
         // Water level mm-to-ml lookup table (from DE1 TCL implementation)
@@ -1248,7 +1249,7 @@ export default function Page() {
                     // Auto-transition to sleep
                     if (STATE.machineState === 'sleeping' && STATE.screen === 'main') {
                         STATE.screen = 'sleep';
-                        sendDisplayCommand('dim');
+                        setDisplayBrightness(5);
                         render();
                     }
 
@@ -1330,6 +1331,9 @@ export default function Page() {
                     resetReconnectDelay('display');
                     STATE.displayWs.send(JSON.stringify({ command: 'requestWakeLock' }));
                 };
+                STATE.displayWs.onmessage = (event) => {
+                    STATE.displayState = JSON.parse(event.data);
+                };
                 STATE.displayWs.onclose = () => {
                     setTimeout(connectDisplayWebSocket, getReconnectDelay('display'));
                 };
@@ -1341,9 +1345,9 @@ export default function Page() {
             }
         }
 
-        function sendDisplayCommand(command) {
-            if (STATE.displayWs && STATE.displayWs.readyState === WebSocket.OPEN) {
-                STATE.displayWs.send(JSON.stringify({ command }));
+        function setDisplayBrightness(brightness) {
+            if (STATE.displayWs?.readyState === WebSocket.OPEN) {
+                STATE.displayWs.send(JSON.stringify({ command: 'setBrightness', brightness }));
             }
         }
 
@@ -1353,6 +1357,27 @@ export default function Page() {
             if (now - lastHeartbeat < 30000) return;
             lastHeartbeat = now;
             apiCall('/api/v1/machine/heartbeat', { method: 'POST' });
+        }
+
+        // Idle dimming — dim after inactivity on main/done screens
+        let idleTimer = null;
+        const IDLE_DIM_MS = 60000;
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                if (STATE.screen === 'main' || STATE.screen === 'done') {
+                    setDisplayBrightness(5);
+                }
+            }, IDLE_DIM_MS);
+        }
+
+        function onUserActivity() {
+            if (STATE.screen !== 'sleep') {
+                setDisplayBrightness(100);
+            }
+            resetIdleTimer();
+            sendHeartbeat();
         }
 
         // ============ STATE MACHINE ============
@@ -1545,7 +1570,7 @@ export default function Page() {
         }
 
         async function sleep() {
-            sendDisplayCommand('dim');
+            setDisplayBrightness(5);
             STATE.screen = 'sleep';
             render();
         }
@@ -1557,12 +1582,13 @@ export default function Page() {
 
         async function wakeUp() {
             STATE.screen = 'main';
-            sendDisplayCommand('restore');
+            setDisplayBrightness(100);
 
             await wakeMachine();
             await pushWorkflowToMachine();
 
             render();
+            resetIdleTimer();
         }
 
         // ============ RENDERING ============
@@ -2344,8 +2370,8 @@ export default function Page() {
             connectDisplayWebSocket();
 
             document.addEventListener('keydown', handleGlobalKeydown);
-            document.addEventListener('click', sendHeartbeat);
-            document.addEventListener('touchstart', sendHeartbeat);
+            document.addEventListener('click', onUserActivity);
+            document.addEventListener('touchstart', onUserActivity);
 
             await getMachineState();
             await getProfiles();
@@ -2353,6 +2379,7 @@ export default function Page() {
             await pushWorkflowToMachine();
 
             render();
+            resetIdleTimer();
 
             // Update brewing stats and sleep clock without full re-render
             setInterval(() => {
