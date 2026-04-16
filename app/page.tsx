@@ -849,6 +849,7 @@ export default function Page() {
             currentWeight: 0,
             targetWeightReached: false,
             machineInfo: null,
+            buildInfo: null,
             waterLevelMm: 0,
             waterLevelLiters: 0,
             waterLevelWs: null,
@@ -944,6 +945,12 @@ export default function Page() {
         async function getMachineInfo() {
             const data = await apiCall('/api/v1/machine/info');
             if (data) STATE.machineInfo = data;
+            return data;
+        }
+
+        async function getBuildInfo() {
+            const data = await apiCall('/api/v1/info');
+            if (data) STATE.buildInfo = data;
             return data;
         }
 
@@ -1372,7 +1379,7 @@ export default function Page() {
 
         async function openSettings() {
             STATE.screen = 'settings';
-            await getMachineInfo();
+            await Promise.all([getMachineInfo(), getBuildInfo()]);
             render();
         }
 
@@ -1382,7 +1389,7 @@ export default function Page() {
         }
 
         function openPluginSettings() {
-            const pluginUrl = \`\${CONFIG.apiUrl}/api/v1/plugins/settings.reaplugin/ui\`;
+            const pluginUrl = \`\${CONFIG.apiUrl}/api/v1/plugins/settings.reaplugin/ui?backName=Baseline\`;
             window.open(pluginUrl, '_blank');
         }
 
@@ -1651,13 +1658,14 @@ export default function Page() {
                             </select>
                         </div>
 
-                        \${STATE.machineInfo ? \`
+                        \${STATE.machineInfo || STATE.buildInfo ? \`
                         <div class="setting-group setting-group-divider">
                             <label class="setting-label">Machine Info</label>
                             <div class="machine-info-text">
-                                \${STATE.machineInfo.model ? 'Model: ' + STATE.machineInfo.model + '<br>' : ''}
-                                \${STATE.machineInfo.serialNumber ? 'Serial: ' + STATE.machineInfo.serialNumber + '<br>' : ''}
-                                \${STATE.machineInfo.version ? 'Firmware: ' + STATE.machineInfo.version : ''}
+                                \${STATE.machineInfo?.model ? 'Model: ' + STATE.machineInfo.model + '<br>' : ''}
+                                \${STATE.machineInfo?.serialNumber ? 'Serial: ' + STATE.machineInfo.serialNumber + '<br>' : ''}
+                                \${STATE.machineInfo?.version ? 'Firmware: ' + STATE.machineInfo.version + '<br>' : ''}
+                                \${STATE.buildInfo?.fullVersion ? 'Bridge: ' + STATE.buildInfo.fullVersion : (STATE.buildInfo?.version ? 'Bridge: ' + STATE.buildInfo.version : '')}
                             </div>
                         </div>
                         \` : ''}

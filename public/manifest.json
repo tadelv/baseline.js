@@ -1,0 +1,8 @@
+{
+  "id": "baseline",
+  "name": "Baseline",
+  "description": "Reference skin for Streamline-Bridge — simple, educational espresso machine interface",
+  "version": "0.1.0",
+  "author": "Vid Tadel",
+  "repository": "https://github.com/tadelv/baseline"
+}
