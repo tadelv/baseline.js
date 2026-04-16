@@ -792,6 +792,77 @@ export default function Page() {
             line-height: 1.6;
         }
 
+        /* MACHINE SETTINGS (Level 2) */
+        .machine-settings-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-base);
+            z-index: 300;
+            animation: slideInRight 0.3s ease-out;
+            overflow-y: auto;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .machine-settings-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .machine-settings-back {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 0.5rem 0;
+            margin-bottom: 1.5rem;
+            display: block;
+            transition: opacity 0.2s;
+        }
+
+        .machine-settings-back:hover {
+            opacity: 0.8;
+        }
+
+        .machine-settings-section {
+            margin-bottom: 2rem;
+        }
+
+        .machine-settings-section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .machine-settings-btn {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--btn-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--btn-secondary-border);
+            border-radius: 0.375rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.2s;
+        }
+
+        .machine-settings-btn:hover {
+            background: var(--btn-secondary-hover);
+        }
+
         /* REDUCED MOTION */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
@@ -823,10 +894,13 @@ export default function Page() {
         // ============ CONFIG & STATE ============
         const CONFIG = {
             apiUrl: localStorage.getItem('baselineApiUrl') || (window.location.protocol + '//' + window.location.hostname + ':8080'),
-            coffeeWeight: parseInt(localStorage.getItem('baselineCoffeeWeight')) || 20,
-            grinderSetting: parseInt(localStorage.getItem('baselineGrinderSetting')) || 5,
-            profile: localStorage.getItem('baselineProfile') || 'default',
-            clockFormat: localStorage.getItem('baselineClockFormat') || '24'
+            clockFormat: localStorage.getItem('baselineClockFormat') || '24',
+            profile: 'default',
+            coffeeWeight: 20,
+            grinderSetting: 5,
+            steam: { targetTemperature: 150, duration: 50, flow: 0.8 },
+            hotWater: { targetTemperature: 75, duration: 30, volume: 50, flow: 10.0 },
+            rinse: { targetTemperature: 90, duration: 10, flow: 6.0 }
         };
 
         let STATE = {
@@ -878,33 +952,77 @@ export default function Page() {
 
         // ============ STORAGE (KV Store + localStorage) ============
         function saveSettings() {
-            // Always save to localStorage as fallback
             localStorage.setItem('baselineApiUrl', CONFIG.apiUrl);
-            localStorage.setItem('baselineCoffeeWeight', CONFIG.coffeeWeight);
-            localStorage.setItem('baselineGrinderSetting', CONFIG.grinderSetting);
-            localStorage.setItem('baselineProfile', CONFIG.profile);
             localStorage.setItem('baselineClockFormat', CONFIG.clockFormat);
-
-            // Sync to KV store (apiUrl excluded — needed to find the Bridge)
-            const kvData = {
-                coffeeWeight: CONFIG.coffeeWeight,
-                grinderSetting: CONFIG.grinderSetting,
-                profile: CONFIG.profile,
-                clockFormat: CONFIG.clockFormat
-            };
             apiCall('/api/v1/store/baseline/config', {
                 method: 'POST',
-                body: JSON.stringify(kvData)
+                body: JSON.stringify({ clockFormat: CONFIG.clockFormat })
             });
         }
 
+        function saveWorkflowToKv() {
+            apiCall('/api/v1/store/baseline/workflow', {
+                method: 'POST',
+                body: JSON.stringify({
+                    profileId: CONFIG.profile,
+                    coffeeWeight: CONFIG.coffeeWeight,
+                    grinderSetting: CONFIG.grinderSetting,
+                    steam: CONFIG.steam,
+                    hotWater: CONFIG.hotWater,
+                    rinse: CONFIG.rinse
+                })
+            });
+        }
+
+        async function pushWorkflowToMachine() {
+            const profile = STATE.profiles.find(p => p.id === CONFIG.profile);
+            const workflow = {
+                context: {
+                    targetDoseWeight: parseFloat(CONFIG.coffeeWeight),
+                    grinderSetting: String(CONFIG.grinderSetting)
+                },
+                steamSettings: { ...CONFIG.steam },
+                hotWaterData: { ...CONFIG.hotWater },
+                rinseData: { ...CONFIG.rinse }
+            };
+            if (profile) workflow.profile = profile.profile;
+            return await apiCall('/api/v1/workflow', {
+                method: 'PUT',
+                body: JSON.stringify(workflow)
+            });
+        }
+
+        async function loadWorkflowFromMachine() {
+            const wf = await apiCall('/api/v1/workflow');
+            if (!wf) return;
+            if (wf.context?.targetDoseWeight != null) CONFIG.coffeeWeight = wf.context.targetDoseWeight;
+            if (wf.context?.grinderSetting != null) CONFIG.grinderSetting = parseFloat(wf.context.grinderSetting) || CONFIG.grinderSetting;
+            if (wf.steamSettings) CONFIG.steam = { ...CONFIG.steam, ...wf.steamSettings };
+            if (wf.hotWaterData) CONFIG.hotWater = { ...CONFIG.hotWater, ...wf.hotWaterData };
+            if (wf.rinseData) CONFIG.rinse = { ...CONFIG.rinse, ...wf.rinseData };
+        }
+
         async function loadSettingsFromKvStore() {
-            const data = await apiCall('/api/v1/store/baseline/config');
-            if (data) {
-                if (data.coffeeWeight != null) CONFIG.coffeeWeight = parseInt(data.coffeeWeight);
-                if (data.grinderSetting != null) CONFIG.grinderSetting = parseInt(data.grinderSetting);
-                if (data.profile != null) CONFIG.profile = data.profile;
-                if (data.clockFormat != null) CONFIG.clockFormat = data.clockFormat;
+            const config = await apiCall('/api/v1/store/baseline/config');
+            if (config?.clockFormat != null) CONFIG.clockFormat = config.clockFormat;
+
+            const workflow = await apiCall('/api/v1/store/baseline/workflow');
+            if (workflow) {
+                if (workflow.profileId != null) CONFIG.profile = workflow.profileId;
+                if (workflow.coffeeWeight != null) CONFIG.coffeeWeight = parseFloat(workflow.coffeeWeight);
+                if (workflow.grinderSetting != null) CONFIG.grinderSetting = parseFloat(workflow.grinderSetting);
+                if (workflow.steam) CONFIG.steam = { ...CONFIG.steam, ...workflow.steam };
+                if (workflow.hotWater) CONFIG.hotWater = { ...CONFIG.hotWater, ...workflow.hotWater };
+                if (workflow.rinse) CONFIG.rinse = { ...CONFIG.rinse, ...workflow.rinse };
+            } else if (config?.profile || config?.coffeeWeight) {
+                // Migrate from legacy config key
+                await loadWorkflowFromMachine();
+                if (config.profile != null) CONFIG.profile = config.profile;
+                if (config.coffeeWeight != null) CONFIG.coffeeWeight = parseFloat(config.coffeeWeight);
+                if (config.grinderSetting != null) CONFIG.grinderSetting = parseFloat(config.grinderSetting);
+                saveWorkflowToKv();
+            } else {
+                await loadWorkflowFromMachine();
             }
         }
 
@@ -960,26 +1078,6 @@ export default function Page() {
                 STATE.profiles = data;
             }
             return data;
-        }
-
-        async function setProfile(profileId) {
-            // Find the full profile object
-            const profile = STATE.profiles.find(p => p.id === profileId);
-            if (!profile) {
-                console.error('[v0] Profile not found:', profileId);
-                return null;
-            }
-            
-            return await apiCall('/api/v1/workflow', {
-                method: 'PUT',
-                body: JSON.stringify({
-                    profile: profile.profile,
-                    context: {
-                        targetDoseWeight: parseFloat(CONFIG.coffeeWeight),
-                        grinderSetting: String(CONFIG.grinderSetting)
-                    }
-                })
-            });
         }
 
         function connectDevicesWebSocket() {
@@ -1393,26 +1491,49 @@ export default function Page() {
             window.open(pluginUrl, '_blank');
         }
 
-        async function saveSettingsFromDialog() {
-            const serverUrl = document.getElementById('settingServerUrl').value;
-            const weight = document.getElementById('settingCoffeeWeight').value;
-            const grinder = document.getElementById('settingGrinder').value;
-            const profile = document.getElementById('settingProfile').value;
-            const clockFormat = document.getElementById('settingClockFormat').value;
+        function openMachineSettings() {
+            STATE.screen = 'machineSettings';
+            render();
+        }
 
-            CONFIG.apiUrl = serverUrl;
-            CONFIG.coffeeWeight = parseInt(weight);
-            CONFIG.grinderSetting = parseInt(grinder);
-            CONFIG.profile = profile;
-            CONFIG.clockFormat = clockFormat;
+        function closeMachineSettings() {
+            STATE.screen = 'settings';
+            render();
+        }
+
+        async function saveMachineSettingsFromDialog() {
+            CONFIG.steam = {
+                targetTemperature: parseInt(document.getElementById('steamTemp').value),
+                duration: parseInt(document.getElementById('steamDuration').value),
+                flow: parseFloat(document.getElementById('steamFlow').value)
+            };
+            CONFIG.hotWater = {
+                targetTemperature: parseInt(document.getElementById('hwTemp').value),
+                duration: parseInt(document.getElementById('hwDuration').value),
+                volume: parseInt(document.getElementById('hwVolume').value),
+                flow: parseFloat(document.getElementById('hwFlow').value)
+            };
+            CONFIG.rinse = {
+                targetTemperature: parseInt(document.getElementById('rinseTemp').value),
+                duration: parseInt(document.getElementById('rinseDuration').value),
+                flow: parseFloat(document.getElementById('rinseFlow').value)
+            };
+
+            saveWorkflowToKv();
+            await pushWorkflowToMachine();
+            closeMachineSettings();
+        }
+
+        async function saveSettingsFromDialog() {
+            CONFIG.apiUrl = document.getElementById('settingServerUrl').value;
+            CONFIG.coffeeWeight = parseFloat(document.getElementById('settingCoffeeWeight').value);
+            CONFIG.grinderSetting = parseFloat(document.getElementById('settingGrinder').value);
+            CONFIG.profile = document.getElementById('settingProfile').value;
+            CONFIG.clockFormat = document.getElementById('settingClockFormat').value;
 
             saveSettings();
-            
-            // Set the profile on the machine
-            if (profile) {
-                await setProfile(profile);
-            }
-
+            saveWorkflowToKv();
+            await pushWorkflowToMachine();
             closeSettings();
         }
 
@@ -1438,12 +1559,9 @@ export default function Page() {
             STATE.screen = 'main';
             sendDisplayCommand('restore');
 
-            await wakeMachine(); 
-            // Set the profile when waking up
-            if (CONFIG.profile) {
-                await setProfile(CONFIG.profile);
-            }
-            
+            await wakeMachine();
+            await pushWorkflowToMachine();
+
             render();
         }
 
@@ -1618,7 +1736,7 @@ export default function Page() {
         }
 
         function renderSettingsScreen() {
-            const profileOptions = STATE.profiles.map(p => 
+            const profileOptions = STATE.profiles.map(p =>
                 \`<option value="\${p.id}" \${p.id === CONFIG.profile ? 'selected' : ''}>\${p.profile.title || p.id}</option>\`
             ).join('');
 
@@ -1626,11 +1744,6 @@ export default function Page() {
                 <div class="settings-overlay" role="dialog" aria-label="Settings" aria-modal="true">
                     <div class="settings-dialog">
                         <h2 class="settings-title">Settings</h2>
-                        
-                        <div class="setting-group">
-                            <label class="setting-label" for="settingServerUrl">Bridge Address</label>
-                            <input type="text" id="settingServerUrl" class="setting-input" value="\${CONFIG.apiUrl}" placeholder="http://192.168.1.x:8080" />
-                        </div>
 
                         <div class="setting-group">
                             <label class="setting-label" for="settingProfile">Brewing Profile</label>
@@ -1650,12 +1763,17 @@ export default function Page() {
                             <input type="number" id="settingGrinder" class="setting-input" value="\${CONFIG.grinderSetting}" min="1" />
                         </div>
 
-                        <div class="setting-group">
+                        <div class="setting-group setting-group-divider">
                             <label class="setting-label" for="settingClockFormat">Clock</label>
                             <select id="settingClockFormat" class="setting-input">
                                 <option value="24" \${CONFIG.clockFormat === '24' ? 'selected' : ''}>24-hour</option>
                                 <option value="12" \${CONFIG.clockFormat === '12' ? 'selected' : ''}>12-hour</option>
                             </select>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label" for="settingServerUrl">Bridge Address</label>
+                            <input type="text" id="settingServerUrl" class="setting-input" value="\${CONFIG.apiUrl}" placeholder="http://192.168.1.x:8080" />
                         </div>
 
                         \${STATE.machineInfo || STATE.buildInfo ? \`
@@ -1670,9 +1788,79 @@ export default function Page() {
                         </div>
                         \` : ''}
 
+                        <div class="setting-group">
+                            <button class="machine-settings-btn" onclick="openMachineSettings()">\u2699 Machine Settings \u2192</button>
+                        </div>
+
                         <div class="settings-buttons">
                             <button class="settings-button cancel" onclick="closeSettings()">Cancel</button>
-                            <button class="settings-button save" onclick="saveSettingsFromDialog()">Save Settings</button>
+                            <button class="settings-button save" onclick="saveSettingsFromDialog()">Save</button>
+                        </div>
+                    </div>
+                </div>
+            \`;
+        }
+
+        function renderMachineSettingsScreen() {
+            return \`
+                <div class="machine-settings-screen" role="dialog" aria-label="Machine Settings" aria-modal="true">
+                    <div class="machine-settings-container">
+                        <button class="machine-settings-back" onclick="closeMachineSettings()">\u2190 Machine Settings</button>
+
+                        <div class="machine-settings-section">
+                            <h3 class="machine-settings-section-title">Steam</h3>
+                            <div class="setting-group">
+                                <label class="setting-label" for="steamTemp">Temperature (\u00B0C)</label>
+                                <input type="number" id="steamTemp" class="setting-input" value="\${CONFIG.steam.targetTemperature}" min="100" max="165" />
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label" for="steamDuration">Duration (sec)</label>
+                                <input type="number" id="steamDuration" class="setting-input" value="\${CONFIG.steam.duration}" min="1" max="120" />
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label" for="steamFlow">Flow Rate</label>
+                                <input type="number" id="steamFlow" class="setting-input" value="\${CONFIG.steam.flow}" min="0" max="4" step="0.1" />
+                            </div>
+                        </div>
+
+                        <div class="machine-settings-section">
+                            <h3 class="machine-settings-section-title">Hot Water</h3>
+                            <div class="setting-group">
+                                <label class="setting-label" for="hwTemp">Temperature (\u00B0C)</label>
+                                <input type="number" id="hwTemp" class="setting-input" value="\${CONFIG.hotWater.targetTemperature}" min="40" max="100" />
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label" for="hwDuration">Duration (sec)</label>
+                                <input type="number" id="hwDuration" class="setting-input" value="\${CONFIG.hotWater.duration}" min="1" max="120" />
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label" for="hwVolume">Volume (ml)</label>
+                                <input type="number" id="hwVolume" class="setting-input" value="\${CONFIG.hotWater.volume}" min="10" max="500" />
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label" for="hwFlow">Flow Rate</label>
+                                <input type="number" id="hwFlow" class="setting-input" value="\${CONFIG.hotWater.flow}" min="0" max="15" step="0.1" />
+                            </div>
+                        </div>
+
+                        <div class="machine-settings-section">
+                            <h3 class="machine-settings-section-title">Rinse</h3>
+                            <div class="setting-group">
+                                <label class="setting-label" for="rinseTemp">Temperature (\u00B0C)</label>
+                                <input type="number" id="rinseTemp" class="setting-input" value="\${CONFIG.rinse.targetTemperature}" min="40" max="100" />
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label" for="rinseDuration">Duration (sec)</label>
+                                <input type="number" id="rinseDuration" class="setting-input" value="\${CONFIG.rinse.duration}" min="1" max="60" />
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label" for="rinseFlow">Flow Rate</label>
+                                <input type="number" id="rinseFlow" class="setting-input" value="\${CONFIG.rinse.flow}" min="0" max="10" step="0.1" />
+                            </div>
+                        </div>
+
+                        <div class="settings-buttons">
+                            <button class="settings-button save" onclick="saveMachineSettingsFromDialog()">Save</button>
                         </div>
                     </div>
                 </div>
@@ -1702,6 +1890,8 @@ export default function Page() {
             } else if (STATE.screen === 'settings') {
                 app.innerHTML = renderMainScreen() + renderSettingsScreen();
                 setTimeout(() => renderAmbientAnimation('ambientCanvas'), 50);
+            } else if (STATE.screen === 'machineSettings') {
+                app.innerHTML = renderMachineSettingsScreen();
             }
 
             if (STATE.screen === 'brewing' && !brewingAnimationFrame) {
@@ -2136,7 +2326,9 @@ export default function Page() {
         // ============ KEYBOARD HANDLERS ============
         function handleGlobalKeydown(e) {
             if (e.key === 'Escape') {
-                if (STATE.screen === 'settings') {
+                if (STATE.screen === 'machineSettings') {
+                    closeMachineSettings();
+                } else if (STATE.screen === 'settings') {
                     closeSettings();
                 } else if (STATE.screen === 'carousel') {
                     closeCarousel();
@@ -2147,25 +2339,19 @@ export default function Page() {
         // ============ INITIALIZATION ============
         async function init() {
             console.log('[v0] Baseline starting...');
-            await loadSettingsFromKvStore();
             connectMachineSnapshotWebSocket();
             connectWaterLevelWebSocket();
             connectDisplayWebSocket();
 
-            // Keyboard navigation
             document.addEventListener('keydown', handleGlobalKeydown);
-
-            // Presence heartbeat on user interaction
             document.addEventListener('click', sendHeartbeat);
             document.addEventListener('touchstart', sendHeartbeat);
+
             await getMachineState();
             await getProfiles();
-            
-            // Set the profile on machine startup
-            if (CONFIG.profile) {
-                await setProfile(CONFIG.profile);
-            }
-            
+            await loadSettingsFromKvStore();
+            await pushWorkflowToMachine();
+
             render();
 
             // Update brewing stats and sleep clock without full re-render
