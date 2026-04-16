@@ -1523,7 +1523,7 @@ export default function Page() {
                     </div>
                     <div class="carousel-controls">
                         \${STATE.showGhcHint
-                            ? '<button class="carousel-btn prev" onclick="ghcStartOver()">Start Over</button>'
+                            ? '<button class="carousel-btn prev" onclick="ghcStartOver()">Try Again</button>'
                             : \`<button class="carousel-btn prev" onclick="prevStep()" \${STATE.carouselStep === 0 ? 'disabled' : ''}>← Back</button>\`}
                         <button class="carousel-btn next" onclick="nextStep()">\${STATE.carouselStep === 6 ? 'Brew ☕' : 'Next →'}</button>
                     </div>
